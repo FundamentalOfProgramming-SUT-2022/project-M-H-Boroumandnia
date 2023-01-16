@@ -4,7 +4,7 @@
 #include<sys/stat.h>
 #include <unistd.h>
 void rootFolder(){
-    mkdir("root",777);
+    mkdir("root",0777);
 }
 void strText(){
     printf("\n> This project developed by Mohammad Hossein Boroumandni in C.\n>\n");
@@ -77,7 +77,7 @@ void createfile(char *command){
             char *folder=(char*)malloc(sizeof(char)*200);
             for(int j=0;j<i;j++)
                 *(folder+j)=*(address+j);
-            mkdir(folder,777);
+            mkdir(folder,0777);
             free(folder);
         }
     }
