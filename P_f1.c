@@ -4,7 +4,7 @@
 #include<sys/stat.h>
 #include <unistd.h>
 void rootFolder(){
-    mkdir("root",0777);
+    mkdir("root",777);
 }
 void strText(){
     printf("\n> This project developed by Mohammad Hossein Boroumandni in C.\n>\n");
@@ -15,27 +15,32 @@ void createfile(char *command){
     int filePos,strLen;
     strLen=strlen(command);
     filePtr=strstr(command," --file ");
+    //check for --file
     if(filePtr==NULL){
         printf("> Usage : createfile -–file <file name and address>\n");
         return;
     }
+    //check for aditinal char between createfile and --file
     for(int i=0;*(filePtr-i)==' ';i++)
         filePos=i;
      if((filePtr-filePos-10)!=command ){
         printf("> Usage : createfile -–file <file name and address>\n");
         return;
     }
+    //check for slash
     slashPtr=strstr(command,"/");
     if(slashPtr==NULL){
         printf("> dir : /root/... or \"/root/...\"\n");
         return;
     }
+    //check for qout
     if(*(slashPtr-1)=='"')
         qoutPtr=slashPtr-1;
     if(qoutPtr!=NULL && *(command+strLen-1)!='"'){
         printf("> dir : \"/root/...\"\n");
         return;
     }
+    //check for aditinal char between / or " and --file
     if(qoutPtr!=NULL){
         for(int i=0;(qoutPtr-1-i)!=(filePtr+7);i++){
             if(*(qoutPtr-1-i)!=' '){
@@ -58,6 +63,7 @@ void createfile(char *command){
             }
         }
     }
+    //make address file
     if(qoutPtr!=NULL){
         for(int i=0;(slashPtr+i+1)!=(command+strLen-1);i++){
             *(address+i)=*(slashPtr+i+1);
@@ -68,21 +74,22 @@ void createfile(char *command){
             *(address+i)=*(slashPtr+i+1);
         }
     }
+    //check for file existence
     if(access(address,F_OK)==0){
         printf("> File exists\n");
         return;
     }
+    //make new directories and file
     for(int i=0;*(address+i)!=0;i++){
         if(*(address+i)=='/'){
             char *folder=(char*)malloc(sizeof(char)*200);
             for(int j=0;j<i;j++)
                 *(folder+j)=*(address+j);
-            mkdir(folder,0777);
+            mkdir(folder,777);
             free(folder);
         }
     }
     fopen(address,"w+");
-    printf("ok");
     free(address);
 }
 void firstEndSpaceRemoval(char *command){
