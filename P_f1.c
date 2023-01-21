@@ -3,6 +3,7 @@
 #include<string.h>
 #include<sys/stat.h>
 #include <unistd.h>
+#include<dirent.h>
 void rootFolder(){
     mkdir("root",0777);
 }
@@ -398,6 +399,89 @@ void cat(char *command){
     printf("// %s\n%s\n",fileName,buffer);
 
 }
+void treeDepthPrint(int depth,int startFrom,char dirAdd[]){
+    DIR * directories;
+    struct dirent *dir;
+    char *add3=(char*)malloc(sizeof(char)*1000);
+    directories = opendir(dirAdd);
+    //check for directories with dirent library
+    if(directories){
+        while((dir=readdir(directories))!=NULL){
+            //check for depth
+            if(startFrom==depth)
+                break;
+            //check for hidden files
+            if(dir->d_name[0]!='.' && dir->d_name[strlen(dir->d_name)-1]!='~'){
+                for(int i=0;i<startFrom;i++)
+                    printf("    ");
+                printf("└── %s",dir->d_name);
+                //print the tpye of files or folders
+                if(dir->d_type==4)
+                    printf(" (dir)\n");
+                else
+                    printf(" (file)\n");
+                //make address to open new directory
+                if(dir->d_type!=8){
+                    for(int i=0;;i++){
+                        if(i<strlen(dirAdd))
+                            *(add3+i)=*(dirAdd+i);
+                        else if(i==strlen(dirAdd))
+                                *(add3+i)='/';
+                             else
+                                *(add3+i)=*(dir->d_name+i-strlen(dirAdd)-1);
+                        if(i==strlen(dirAdd)+strlen(dir->d_name)){
+                            *(add3+i+1)=0;
+                            break;
+                        }
+                    }
+                    treeDepthPrint(depth,startFrom+1,add3);
+                }
+            }        
+        }
+        closedir(directories);
+    }
+}
+void treeCommandReader(char* command){
+    char *depthString=(char*)malloc(sizeof(char)*30);
+    //check for aditinal char
+    for(int i=0;*(command+i+4)!=0;i++){
+        *(depthString+i)=*(command+i+4);
+        if((*(command+i+4)>57 || *(command+i+4)<48) && *(command+i+4)!=' ' && *(command+i+4)!='-'){
+            printf("> Usage : tree <depth>\n");
+            return;
+        }
+    }
+    //check for aditinal space and -
+    firstEndSpaceRemoval(depthString);
+    int depthDash=0;
+    int depth=0;
+    if(*(depthString)=='-')
+        depthDash=1;
+    if(depthDash==1){
+        for(int i=1;*(depthString+i)!=0;i++)
+            if(*(depthString+i)==' ' || *(depthString+i)=='-'){
+                printf("> Usage :tree <depth>\n");
+                return;
+            }
+        depth=-atoi(depthString+1);
+    }
+    else{
+        for(int i=0;*(depthString+i)!=0;i++)
+            if(*(depthString+i)==' ' || *(depthString+i)=='-'){
+                printf("> Usage :tree <depth>\n");
+                return;
+            }
+        depth=atoi(depthString);
+    }
+    //check for Invalid depth number
+    if(depth<-1){
+        printf("> Usage : Invalid depth\n");
+        return;
+    }
+    printf("root\n");
+    //use recursive function to print every directories
+    treeDepthPrint(depth,0,"root");
+}
 void commandDetector(char *command){
     if(!strcmp(command,"end")){
          printf("> Exiting  Programm ...\n\n");
@@ -414,6 +498,10 @@ void commandDetector(char *command){
      }
     if(strstr(command,"cat ")==command || !strcmp(command,"cat")){
          cat(command);
+         return;
+     }
+    if(strstr(command,"tree ")==command || !strcmp(command,"tree")){
+         treeCommandReader(command);
          return;
      }
      else{
