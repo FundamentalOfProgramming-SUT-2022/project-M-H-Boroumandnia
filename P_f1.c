@@ -21,6 +21,40 @@ void firstEndSpaceRemoval(char *command){
     for(int i=len-1;*(command+i)==' ';i--)
         *(command+i)=0;
 }
+int specialCharHandeling(char *string){
+    //check for special character
+    for(int i=0;*(string+i+1)!=0;i++){
+        if(*(string+i)=='\\' && ((*(string+i+1)!='t') &&  (*(string+i+1)!='n') && (*(string+i+1)!='"'))){
+            printf("> Usage : undefined character detecteds\n");
+            return 0;
+        }
+        //check for \t
+        if(*(string+i)=='\\' && (*(string+i+1)=='t')){
+            *(string+i)='\t';
+            for(int j=i+1;*(string+j)!=0;j++){
+                *(string+j)=*(string+j+1);
+            }
+            i=0;
+        }
+        //check for \n
+        if(*(string+i)=='\\' && (*(string+i+1)=='n')){
+            *(string+i)='\n';
+            for(int j=i+1;*(string+j)!=0;j++){
+                *(string+j)=*(string+j+1);
+            }
+            i=0;
+        }
+        //check for \"
+        if(*(string+i)=='\\' && (*(string+i+1)=='"')){
+            *(string+i)='"';
+            for(int j=i+1;*(string+j)!=0;j++){
+                *(string+j)=*(string+j+1);
+            }
+            i=0;
+        }
+    }
+    return 1;
+}
 void createfile(char *command){
     char *filePtr,*slashPtr,*qoutPtr=NULL;
     char *address=(char*)malloc(sizeof(char)*100);
@@ -52,14 +86,19 @@ void createfile(char *command){
         printf("> dir : \"/root/...\"\n");
         return;
     }
-    //check for aditinal char between / or " and --file
+    //check for aditinal char between / or " and --file and special character
     if(qoutPtr!=NULL){
         for(int i=0;(qoutPtr-1-i)!=(filePtr+7);i++){
             if(*(qoutPtr-1-i)!=' '){
                 printf("> Usage : createfile -–file <file name and address>\n");
                 return;
             }
-        }  
+        }
+        for(int i=0;(qoutPtr+i+1)<(command+strLen-2);i++)
+            if((*(qoutPtr+i+1)!='\\') && (*(qoutPtr+i+2)=='"')){
+                printf("> Usage : undefined character detected\n");
+                return;
+        }
     }
     else{
         for(int i=0;(slashPtr-1-i)!=(filePtr+7);i++){
@@ -74,6 +113,11 @@ void createfile(char *command){
                 return;
             }
         }
+        for(int i=0;(slashPtr+i)<(command+strLen-1);i++)
+            if((*(slashPtr+i)!='\\') && (*(slashPtr+i+1)=='"')){
+                printf("> Usage : undefined character detected\n");
+                return;
+        }
     }
     //make address file
     if(qoutPtr!=NULL){
@@ -86,6 +130,16 @@ void createfile(char *command){
             *(address+i)=*(slashPtr+i+1);
         }
     }
+    //check for special character
+    if(specialCharHandeling(address)==0)
+        return;
+    else
+        for(int i=0;*(address+i)!=0;i++){
+            if(*(address+i)=='\n'){
+                printf("> Usage : undefined character detected\n");
+                return;
+            }
+        }
     //check for file existence
     if(access(address,F_OK)==0){
         printf("> File exists\n");
@@ -399,6 +453,184 @@ void cat(char *command){
     printf("// %s\n%s\n",fileName,buffer);
 
 }
+void compare(char *command){
+    char *slashPtr=NULL,*snSlashPtr=NULL,*qoutPtr=NULL,*snQoutPtr=NULL;
+    char *address1=(char*)malloc(sizeof(char)*100);
+    char *address2=(char*)malloc(sizeof(char)*100);
+    int fileDistance=0;
+    //check for slash
+    slashPtr=strstr(command,"/");
+    if(slashPtr==NULL){
+        printf("> dir : /root/... or \"/root/...\"\n");
+        return;
+    }
+     //check for qout
+    if(*(slashPtr-1)=='"')
+        qoutPtr=slashPtr-1;
+    //check for aditinal char between createfile and --file
+    if(qoutPtr!=NULL)
+        for(int i=0;(command+7+i)<qoutPtr;i++){
+            if(*(command+7+i)!=' '){
+                printf("Usage : compare <file1> <file2>\n");
+                return;
+            }
+        }
+    else
+        for(int i=0;(command+7+i)<slashPtr;i++){
+            if(*(command+7+i)!=' '){
+                printf("Usage : compare <file1> <file2>\n");
+                return;
+            }
+        }
+    //check for first address
+    if(qoutPtr==NULL){
+        for(int i=0;*(slashPtr+1+i)!=' ';i++){
+            *(address1+i)=*(slashPtr+1+i);
+            fileDistance=2+i;
+        }
+        if(specialCharHandeling(address1)==0)
+            return;
+        else
+            for(int i=0;*(address1+i)!=0;i++){
+                if(*(address1+i)=='\n'){
+                    printf("> Usage : undefined character detected\n");
+                    return;
+                }
+            }
+    }
+    else{
+        int qoutCheck=0;
+        for(int i=0;*(slashPtr+1+i)!=0;i++){
+            if(*(slashPtr+1+i)=='"'){
+                qoutCheck=1;
+                break;
+            }
+            *(address1+i)=*(slashPtr+1+i);
+            fileDistance=3+i;
+        }
+        if(qoutCheck!=1){
+            printf("> dir : \"/root/...\"\n");
+            return;
+        }
+        if(specialCharHandeling(address1)==0)
+            return;
+        else
+            for(int i=0;*(address1+i)!=0;i++){
+                if(*(address1+i)=='\n'){
+                    printf("> Usage : undefined character detected\n");
+                    return;
+                }
+            }
+    }
+    //check for second file slash
+    snSlashPtr=strstr(slashPtr+fileDistance,"/");
+    if(snSlashPtr==NULL){
+        printf("> dir : /root/... or \"/root/...\"\n");
+        return;
+    }
+    //check for qout
+    if(*(snSlashPtr-1)=='"')
+        snQoutPtr=snSlashPtr-1;
+    //check for aditinal char between file1 and file2
+    if(snQoutPtr!=NULL)
+        for(int i=0;(slashPtr+fileDistance+i)<snQoutPtr;i++){
+            if(*(slashPtr+fileDistance+i)!=' '){
+                printf("> Usage : compare <file1> <file2>\n");
+                return;
+            }
+        }
+    else
+        for(int i=0;(slashPtr+fileDistance+i)<snSlashPtr;i++){
+            if(*(slashPtr+fileDistance+i)!=' '){
+                printf("> Usage : compare <file1> <file2>\n");
+                return;
+            }
+        }
+    //save second address
+    if(snQoutPtr==NULL){
+        for(int i=0;*(snSlashPtr+1+i)!=0;i++){
+            *(address2+i)=*(snSlashPtr+1+i);
+        }
+        if(specialCharHandeling(address2)==0)
+            return;
+        else
+            for(int i=0;*(address2+i)!=0;i++){
+                if(*(address2+i)=='\n'){
+                    printf("> Usage : undefined character detected\n");
+                    return;
+                }
+            }
+    }
+    else{
+        if(*(command+strlen(command)-1)!='"'){
+            printf("> dir : \"/root/...\"\n");
+            return;
+        }
+        for(int i=0;*(snSlashPtr+1+i)!='"';i++){
+            *(address2+i)=*(snSlashPtr+1+i);
+        }
+        if(specialCharHandeling(address2)==0)
+            return;
+        else
+            for(int i=0;*(address2+i)!=0;i++){
+                if(*(address2+i)=='\n'){
+                    printf("> Usage : undefined character detected\n");
+                    return;
+                }
+        }
+    }
+    //check for aditional space at the end of file
+    if(snQoutPtr==NULL)
+        for(int i=0;*(address2+i)!=0;i++)
+            if(*(address2+i)==' '){
+                printf("> Usage : aditinal space detected\n");
+                return;
+            }
+    //check for address existence
+    if(access(address1,F_OK)!=0){
+        printf("> File dose not exists\n");
+        return;
+    }
+    if(access(address2,F_OK)!=0){
+        printf("> File dose not exists\n");
+        return;
+    }
+    //open files
+    FILE *file1,*file2;
+    char *filePtr1,*filePtr2,*buffer1,*buffer2;
+    file1=fopen(address1,"r");
+    file2=fopen(address2,"r");
+    int lineNumber=1;
+    do{
+        //use fgets() to read lines seperatly
+        buffer1=(char*)malloc(sizeof(char)*500);
+        buffer2=(char*)malloc(sizeof(char)*500);
+        filePtr1=fgets(buffer1,512,file1);
+        filePtr2=fgets(buffer2,512,file2);
+        if(*(buffer1+strlen(buffer1)-1)!='\n' && filePtr1!=NULL){
+            *(buffer1+strlen(buffer1))='\n';
+            *(buffer1+strlen(buffer1)+1)=0;
+        }
+        if(*(buffer2+strlen(buffer2)-1)!='\n'&& filePtr2!=NULL){
+            *(buffer2+strlen(buffer2))='\n';
+            *(buffer2+strlen(buffer2)+1)=0;
+        }
+        //check witch file is longer and check for same lines
+        if(strcmp(buffer1,buffer2) && filePtr1!=NULL && filePtr2!=NULL)
+            printf("============ #%d ============\n%s%s",lineNumber,buffer1,buffer2);
+        if(filePtr1!=NULL && filePtr2==NULL)
+            printf("<<<<<<<<<< #%d - #%d <<<<<<<<<<\n%s",lineNumber,lineNumber,buffer1);
+        if(filePtr1==NULL && filePtr2!=NULL)
+            printf(">>>>>>>>>> #%d - #%d >>>>>>>>>>\n%s",lineNumber,lineNumber,buffer1);
+        free(buffer1);
+        free(buffer2);
+        lineNumber++;
+    }while(filePtr2!=NULL ||  filePtr1!=NULL);
+    fclose(file1);
+    fclose(file2);
+    free(address1);
+    free(address2);
+}
 void treeDepthPrint(int depth,int startFrom,char dirAdd[]){
     DIR * directories;
     struct dirent *dir;
@@ -491,20 +723,24 @@ void commandDetector(char *command){
      if(strstr(command,"createfile ")==command || !strcmp(command,"createfile")){
          createfile(command);
          return;
-     }
+    }
     if(strstr(command,"insertstr ")==command || !strcmp(command,"insertstr")){
          insertstr(command);
          return;
-     }
+    }
     if(strstr(command,"cat ")==command || !strcmp(command,"cat")){
          cat(command);
          return;
-     }
+    }
+    if(strstr(command,"compare ")==command || !strcmp(command,"compare")){
+         compare(command);
+         return;
+    }
     if(strstr(command,"tree ")==command || !strcmp(command,"tree")){
          treeCommandReader(command);
          return;
-     }
-     else{
+    }
+    else{
         printf("> Invalid command\n");
         return;;
     }
@@ -519,7 +755,6 @@ int main(){
         fgets(command,300,stdin);
         command[strcspn(command, "\n")] = 0;
         firstEndSpaceRemoval(command);
-        //printf("%s",command);
         commandDetector(command);
         free(command);
     }
