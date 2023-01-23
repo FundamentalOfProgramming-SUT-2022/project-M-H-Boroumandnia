@@ -24,7 +24,11 @@ void firstEndSpaceRemoval(char *command){
 int specialCharHandeling(char *string){
     //check for special character
     for(int i=0;*(string+i+1)!=0;i++){
-        if(*(string+i)=='\\' && ((*(string+i+1)!='t') &&  (*(string+i+1)!='n') && (*(string+i+1)!='"'))){
+        if(*(string+i)=='\\' && ((*(string+i+1)!='t') &&  (*(string+i+1)!='n') && (*(string+i+1)!='"') && (*(string+i+1)!='*'))){
+            printf("> Usage : undefined character detecteds\n");
+            return 0;
+        }
+        if((*(string+i+1)=='"' && *(string+i)!='\\') || *(string)=='"'){
             printf("> Usage : undefined character detecteds\n");
             return 0;
         }
@@ -52,6 +56,15 @@ int specialCharHandeling(char *string){
             }
             i=0;
         }
+        //check for \*
+        if(*(string+i)=='\\' && (*(string+i+1)=='*')){
+            *(string+i)='*';
+            for(int j=i+1;*(string+j)!=0;j++){
+                *(string+j)=*(string+j+1);
+            }
+            i=0;
+        }
+
     }
     return 1;
 }
@@ -159,8 +172,9 @@ void createfile(char *command){
     free(address);
 }
 void insertstr(char *command){
-    char *filePtr,*slashPtr,*qoutPtr=NULL,*lastQoutPtr,*lastCharPtr,*stringPos;
+    char *filePtr,*slashPtr,*qoutPtr=NULL,*lastChar=NULL,*strQoutPtr=NULL,*lastCharPtr=NULL,*stringPos=NULL,*posPos=NULL;
     char *address=(char*)malloc(sizeof(char)*100);
+    char *text=(char*)malloc(sizeof(char)*300);
     int filePos;
     filePtr=strstr(command," --file ");
     //check for --file
@@ -202,113 +216,98 @@ void insertstr(char *command){
         }
     }
     //check for final qout and -str pos
-    long int strCount=0,strCheck=0;
-    while(1){
-        stringPos=strstr(command+strCount," -str ");
-        if(stringPos==NULL){
-            printf("> Usage : –str <str> —pos <line no>:<start position> Or dir : /root/... or \"/root/...\"\n");
-            return;
-        }
-        strCheck=0;
-        if(qoutPtr!=NULL){
-            for(int i=0;*(stringPos-i)!='"';i++){
-                if(*(stringPos-i)!=' '){
-                    strCount=(stringPos-command)+5;
-                    strCheck=-1;
-                    break;  
-                }
-                lastQoutPtr=stringPos-i;
+    if(qoutPtr!=NULL)
+        for(int i=0;*(slashPtr+i+1)!=0;i++){
+            if(*(slashPtr+i+1)=='"' && *(slashPtr+i+2)!=0){
+                lastChar=(slashPtr+i+2);
+                break;
             }
-        }
-        if(strCheck==0)
-            break;
-    }
-    //check for -str without qout
-    if(qoutPtr==NULL){
-        stringPos=strstr(command," -str ");
-        if(stringPos==NULL){
-            printf("Usage : –str <str> —pos <line no>:<start position>\n");
-            return;
-        }
-        for(int i=0;*(stringPos-i)==' ';i++){
-            lastCharPtr=stringPos-i-1;
-        }
-        for(int i=0;(slashPtr+i)<=(lastCharPtr);i++){
-            if(*(slashPtr+i)==' '){
-                printf("> Usage : aditinal space detected\n");
-                return;
-            }
-        }
-    }
-    //make address file
-    if(qoutPtr!=NULL){
-        for(int i=0;(slashPtr+i+1)!=lastQoutPtr-1;i++){
             *(address+i)=*(slashPtr+i+1);
         }
-    }
-    else{
-        for(int i=0;(slashPtr+i+1)!=(lastCharPtr+1);i++){
+    else
+        for(int i=0;*(slashPtr+i+1)!=0;i++){
+            if(*(slashPtr+i+1)==' '){
+                lastChar=(slashPtr+i+1);
+                break;
+            }
             *(address+i)=*(slashPtr+i+1);
         }
-    }
-    //check for file existence
-    if(access(address,F_OK)!=0){
-        printf("> File dose not exists\n");
+    //check for the command after address
+    if(lastChar==NULL){
+        printf("> Usage : –str <str> —pos <line no>:<start position> Or dir : /root/... or \"/root/...\"\n");
         return;
     }
-    char *charPtr,*posPos,*signPtr,*lastTextPtr;
-    //check the location of first char in string
-    for(int i=0;*(stringPos+i+5)!=0;i++){
-        if(*(stringPos+i+5)!=' '){
-            charPtr=stringPos+i+5;
-            break;
-        }
-    }
-    //check for -pos
-    long int posCount=0,posCheck=0;
-    while(1){
-        posPos=strstr(stringPos+5+posCount," -pos ");
-        if(posPos==NULL){
-            printf("> Usage : -pos <line no>:<start position>\n");
-            return;
-        }
-        posCheck=0;
-        for(int i=0;*(posPos+5+i)!=0;i++){
-            if((*(posPos+i+5)<48 || *(posPos+i+5)>58) && *(posPos+i+5)!=' '){
-                posCount=(posPos-stringPos);
-                posCheck=-1;
-                break;  
-            }
-        }
-        if(posCheck==0)
-            break;
-    }
-    //check the location of last char in string
-    for(int i=0;*(posPos-i)==' ';i++)
-        lastTextPtr=posPos-i-1;
-    //save text in a dynamic arrey
-    char *text=(char*)malloc(sizeof(char)*300);
-    if((*lastTextPtr)=='"' && *(charPtr)=='"'){
-        for(int i=0;(charPtr+i+1)!=lastTextPtr;i++)
-            *(text+i)=*(charPtr+i+1);
-    }
-    else{
-        for(int i=0;(charPtr+i)!=lastTextPtr+1;i++)
-            *(text+i)=*(charPtr+i);
-    }
-    //check for aditinal space foe text without qout
-    if(*(lastTextPtr)!='"' ||  *(charPtr)!='"'){
-        for(int i=0;(charPtr+i)!=lastTextPtr;i++){
-            if(*(charPtr+i)==' '){
-                printf("> Usage : aditinal space detected\n");
+    if(specialCharHandeling(address)==0)
+        return;
+    else
+        for(int i=0;*(address+i)!=0;i++){
+            if(*(address+i)=='\n'){
+                printf("> Usage : undefined character detected\n");
                 return;
             }
         }
+    //find str pos
+    stringPos=strstr(lastChar," -str ");
+    if(stringPos==NULL){
+            printf("> Usage : –str <str> —pos <line no>:<start position> Or dir : /root/... or \"/root/...\"\n");
+            return;
     }
+    //find last char of string
+    for(int i=0;*(stringPos+5+i)!=0;i++)
+        if(*(stringPos+5+i)!=' '){
+            strQoutPtr=(stringPos+5+i);
+            break;
+        }
+    //check for the command after string
+    if(strQoutPtr==NULL){
+        printf("> Usage : –str <str> —pos <line no>:<start position>");
+        return;
+    }
+    if(*(strQoutPtr)=='"')
+        for(int i=0;*(strQoutPtr+i+1)!=0;i++){
+            if(*(strQoutPtr+i+1)=='"' && *(strQoutPtr+i+2)!=0){
+                lastCharPtr=(strQoutPtr+i+2);
+                break;
+            }
+            *(text+i)=*(strQoutPtr+i+1);
+        }
+    else
+        for(int i=0;*(strQoutPtr+i)!=0;i++){
+            if(*(strQoutPtr+i)==' '){
+                lastCharPtr=(strQoutPtr+i);
+                break;
+            }
+            *(text+i)=*(strQoutPtr+i);
+        }
+    if(lastCharPtr==NULL){
+        printf("> Usage : –str <str> —pos <line no>:<start position>\n");
+        return;
+    }
+    if(specialCharHandeling(text)==0)
+        return;
+    //check for pos
+    posPos=strstr(lastCharPtr," -pos ");
+    if(posPos==NULL){
+        printf("> Usage : –str <str> —pos <line no>:<start position>\n");
+        return;
+    }
+    //check for aditional spaces
+    for(int i=0;(lastCharPtr+i)<=posPos;i++)
+        if(*(lastCharPtr+i)!=' '){
+            printf("> Usage : –str <str> —pos <line no>:<start position>\n");
+            return;
+        }
+    //check for numbers and :
+    for(int i=0;*(posPos+5+i)!=0;i++)
+        if((*(posPos+i+5)<48 || *(posPos+i+5)>58) && *(posPos+i+5)!=' '){
+            printf("> Usage : —pos <line no>:<start position>\n");
+            return;
+        }
+    char *signPtr;
+    int signNum=0,line=0,character=0;
     char *lineNum=(char*)malloc(sizeof(char)*30);
     char *charNum=(char*)malloc(sizeof(char)*30);
-    int signNum=0,line=0,character=0;
-    //number of sign : check
+    //check for number of :
     for(int i=0;*(posPos+i+5)!=0;i++){
         if(*(posPos+i+5)==':'){
             signPtr=(posPos+i+5);
@@ -320,7 +319,7 @@ void insertstr(char *command){
         return;
     }
     //save line number and char number
-    for(int i=0;(posPos+i+5)!=signPtr;i++)
+    for(int i=0;(posPos+i+5)<signPtr;i++)
        *(lineNum+i)=*(posPos+i+5);
     for(int i=0;*(signPtr+i+1)!=0;i++)
        *(charNum+i)=*(signPtr+i+1);
@@ -342,30 +341,90 @@ void insertstr(char *command){
     //change sring to numbers
     line=atoi(lineNum);
     character=atoi(charNum);
-    //file making 
+    //check for file existence
+    if(access(address,F_OK)!=0){
+        printf("> File dose not exists\n");
+        return;
+    }
+    //make file
     FILE *letsWrite;
-    //int endText=0,lastLine=0,lastChar=0;
     char *buffer=(char*)malloc(sizeof(char)*1000);
-    letsWrite=fopen(address,"w+");
-    fseek(letsWrite, 0, SEEK_SET);
+    char *newBuffer=(char*)malloc(sizeof(char)*1000);
+    letsWrite=fopen(address,"r+");
     fread(buffer,1000,1,letsWrite);
-    int addLine=1,addChar=0,whereToWrite=0;
+    //make a new pointer to hold edited test
+    int lineCount=0,charCount=0,counter=0,finF=0;
+    //put the string until the specific line
     for(int i=0;;i++){
         if(*(buffer+i)=='\n')
-            addLine++;
-        if(addLine==line)
-            addChar++;
-        if(addChar==character){
-            whereToWrite=i;
-            break;     
+            lineCount++;
+        if(*(buffer+i)!=0)
+            *(newBuffer+i)=*(buffer+i);
+        counter=i;
+        if(line==1)
+            counter--;
+        if(lineCount==line-1)
+            break;
+        if(*(buffer+i)==0){
+            finF=1;
+            for(int j=i;lineCount<line-1;j++){
+                *(newBuffer+j)='\n';
+                lineCount++;
+                counter=j;
+            }
+            for(int j=counter+1;charCount<character-1;j++){
+                *(newBuffer+j)=' ';
+                charCount++;
+                counter=j;
+            }
+            for(int j=0;*(text+j)!=0;j++)
+                *(newBuffer+j+counter+1)=*(text+j);
+            break;
         }
     }
-    printf("%d",whereToWrite);
-    fseek(letsWrite, 0, SEEK_SET);
-    for(int i=0;i<=whereToWrite;i++)
-        fputc(*(buffer+i),letsWrite);
-        
-    fclose(letsWrite); 
+    //put the string until specific char
+    int bufferCounter=0;
+    if(finF==0){
+        for(int i=counter+1;;i++){
+            if(charCount<character+1 && (*(buffer+i)!='\n' && *(buffer+i)!=0)){
+                *(newBuffer+i)=*(buffer+i);
+                charCount++;
+                bufferCounter=i;
+            }
+            if(charCount<character+2 && (*(buffer+i)=='\n'|| *(buffer+i)==0)){
+                 bufferCounter=i;
+                if(*(buffer+i)==0)
+                    finF=1;
+                for(int j=0;charCount<=character+1;j++){
+                    if(charCount==character || charCount==character+1){
+                        for(int k=0;*(text+k)!=0;k++){
+                            *(newBuffer+i+j+k)=*(text+k);
+                            counter=i+j+k;
+                        }
+                        break;
+                    }
+                    *(newBuffer+i+j)=' ';
+                    charCount++;
+                }
+                break;
+            }
+            if(charCount==character+1){
+                for(int j=0;*(text+j)!=0;j++){
+                    *(newBuffer+i+j)=*(text+j);
+                    counter=i+j;
+                }
+                break;
+            }
+        }
+    }
+    //put the last part of buffer
+    if(finF==0)
+        for(int i=0;*(buffer+i)!=0;i++)
+            *(newBuffer+counter+i+1)=*(buffer+i+bufferCounter+1);
+    //overwrite and close file
+    fseek(letsWrite,0,SEEK_SET);
+    fputs(newBuffer,letsWrite);
+    fclose(letsWrite);
 }
 void cat(char *command){
     char *filePtr,*slashPtr,*qoutPtr=NULL;
@@ -452,6 +511,142 @@ void cat(char *command){
     fread(buffer,1000,1,letsSee);
     printf("// %s\n%s\n",fileName,buffer);
 
+}
+/*void wildCard(char *buffer){
+    int curentPtr=0;
+    char *newBuffer;
+    char wildCard[100][100];
+    while(1){
+        newBuffer=(char*)malloc(sizeof(char)*1000);
+        for(int i=0;*(buffer+i)!=*) 
+    
+    }   
+}*/
+void find(char *command){
+    char *filePos=NULL,*stringPos=NULL,*firstChar=NULL,*stringQoutPtr=NULL,*posDistance=NULL,*typePos=NULL;
+    char *text=(char*)malloc(sizeof(char)*300);
+    char *address=(char*)malloc(sizeof(char)*300);
+    stringPos=strstr(command," -str ");
+    if(stringPos==NULL){
+        printf("> Usage : find –str <str> --file <file name>\n" );
+        return;
+    }
+    for(int i=0;(command+4+i)<=stringPos;i++)
+        if(*(command+4+i)!=' '){
+            printf("> Usage : find –str <str> --file <file name>\n" );
+            return;
+        }
+    for(int i=0;*(stringPos+5+i)!=0;i++){
+        if(*(stringPos+5+i)!=' ' && *(stringPos+5+i)!='"'){
+            firstChar=(stringPos+5+i);
+            break;
+        }
+        if(*(stringPos+5+i)=='"'){
+            stringQoutPtr=(stringPos+5+i);
+            break;
+        }
+    }
+    if(stringQoutPtr==NULL && firstChar==NULL){
+        printf("> Usage : find –str <str> --file <file name>\n" );
+        return;
+    } 
+    if(firstChar!=NULL)
+        for(int i=0;*(firstChar+i)!=0;i++){
+            if(*(firstChar+i)==' '){
+                posDistance=(firstChar+i);
+                break;
+            }
+            *(text+i)=*(firstChar+i);
+        }
+    if(stringQoutPtr!=NULL)
+        for(int i=0;*(stringQoutPtr+i+1)!=0;i++){
+            if(*(stringQoutPtr+i+1)=='"'){
+                posDistance=(stringQoutPtr+i+1);
+                break;
+            }
+        *(text+i)=*(stringQoutPtr+i+1);
+        }
+    if(posDistance==NULL){
+        printf("> Usage : find –str <str> --file <file name>\n" );
+        return;
+    }
+    filePos=strstr(posDistance," --file ");
+    if(filePos==NULL){
+        printf("> Usage : find –str <str> --file <file name>\n" );
+        return;
+    }
+    for(int i=0;(posDistance+i+1)<=filePos;i++)
+        if(*(posDistance+i+1)!=' '){
+            printf("> Usage : find –str <str> --file <file name>\n" );
+            return;
+        }
+    char *qoutPtr=NULL,*slashPtr=NULL,*typeDistance=NULL;
+    for(int i=0;*(filePos+5+i)!=0;i++){
+        if(*(filePos+7+i)!=' ' && *(filePos+7+i)!='"' && *(filePos+7+i)!='/'){
+            printf("> Usage : find –str <str> --file <file name>\n" );
+            return;
+        }
+        if(*(filePos+7+i)=='"'){
+            qoutPtr=(filePos+7+i);
+            break;
+        }
+        if(*(filePos+7+i)=='/'){
+            slashPtr=(filePos+7+i);
+            break;
+        }
+    }
+    if(qoutPtr==NULL && slashPtr==NULL){
+        printf("> dir : /root/... or \"/root/...\"\n" );
+        return;
+    }
+    if(qoutPtr!=NULL && *(qoutPtr+1)=='/')
+        slashPtr=(qoutPtr+1);
+    else if(qoutPtr!=NULL){
+            printf("> dir : /root/... or \"/root/...\"\n" );
+            return;
+        }
+    if(qoutPtr!=NULL)
+        for(int i=0;*(slashPtr+i+1)!=0;i++){
+            if(*(slashPtr+i+1)=='"'){
+                typeDistance=(slashPtr+i+1);
+                break;
+            }
+            *(address+i)=*(slashPtr+i+1);
+        }
+    else
+        for(int i=0;*(slashPtr+i+1)!=0;i++){
+            if(*(slashPtr+i+1)==' '){
+                typeDistance=(slashPtr+i+1);
+                break;
+            }
+        *(address+i)=*(slashPtr+i+1);
+        }
+    if(qoutPtr!=NULL && typeDistance==NULL){
+        printf("> dir : /root/... or \"/root/...\"\n" );
+        return;
+    }
+    if(specialCharHandeling(address)==0)
+        return;
+    else
+        for(int i=0;*(address+i)!=0;i++){
+            if(*(address+i)=='\n'){
+                printf("> Usage : undefined character detected\n");
+                return;
+            }
+        }
+    if(qoutPtr!=NULL && (*(typeDistance+1)=0))
+        typePos=NULL;
+    if(qoutPtr==NULL && typeDistance==NULL)
+        typePos=NULL;
+    FILE *find;
+    char *buffer=(char *)malloc(sizeof(char)*1000);
+    char *findPos=NULL;
+    if(typePos==NULL){
+        find=fopen(address,"r");
+        fread(buffer,1000,1,find);
+        //wildCard(buffer);
+        fclose(find);
+    }
 }
 void compare(char *command){
     char *slashPtr=NULL,*snSlashPtr=NULL,*qoutPtr=NULL,*snQoutPtr=NULL;
@@ -730,6 +925,10 @@ void commandDetector(char *command){
     }
     if(strstr(command,"cat ")==command || !strcmp(command,"cat")){
          cat(command);
+         return;
+    }
+    if(strstr(command,"find ")==command || !strcmp(command,"find")){
+         find(command);
          return;
     }
     if(strstr(command,"compare ")==command || !strcmp(command,"compare")){
