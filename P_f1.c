@@ -21,9 +21,28 @@ void firstEndSpaceRemoval(char *command){
     for(int i=len-1;*(command+i)==' ';i--)
         *(command+i)=0;
 }
+int  PathCheck(char *address){
+    int check=1;
+    int lastSlash=0;
+    char *dirPath=(char*)malloc(sizeof(char)*100);
+    for(int i=0;*(address+i)!=0;i++)
+        if(*(address+i)=='/')
+            lastSlash=i;
+    for(int i=0;i<lastSlash;i++)
+        *(dirPath+i)=*(address+i);
+    if(access(dirPath,X_OK)!=0){
+        printf("> Path dose not exists\n");
+        return 0;
+    }
+    if(access(address,F_OK)!=0){
+        printf("> File dose not exists\n");
+        return 0;
+    }
+    return check;
+}
 int specialCharHandeling(char *string){
     //check for special character
-    for(int i=0;*(string+i+1)!=0;i++){
+     for(int i=0;*(string+i+1)!=0;i++){
         if(*(string+i)=='\\' && ((*(string+i+1)!='t') &&  (*(string+i+1)!='n') && (*(string+i+1)!='"') && (*(string+i+1)!='*'))){
             printf("> Usage : undefined character detecteds\n");
             return 0;
@@ -32,6 +51,8 @@ int specialCharHandeling(char *string){
             printf("> Usage : undefined character detecteds\n");
             return 0;
         }
+    }
+    for(int i=0;*(string+i+1)!=0;i++){
         //check for \t
         if(*(string+i)=='\\' && (*(string+i+1)=='t')){
             *(string+i)='\t';
@@ -64,14 +85,13 @@ int specialCharHandeling(char *string){
             }
             i=0;
         }
-
     }
     return 1;
 }
 void createfile(char *command){
     char *filePtr,*slashPtr,*qoutPtr=NULL;
     char *address=(char*)malloc(sizeof(char)*100);
-    int filePos,strLen;
+    int strLen;
     strLen=strlen(command);
     filePtr=strstr(command," --file ");
     //check for --file
@@ -80,41 +100,34 @@ void createfile(char *command){
         return;
     }
     //check for aditinal char between createfile and --file
-    for(int i=0;*(filePtr-i)==' ';i++)
-        filePos=i;
-     if((filePtr-filePos-10)!=command ){
-        printf("> Usage : createfile -–file <file name and address>\n");
-        return;
+    for(int i=0;(command+i+10)<=filePtr;i++)
+        if(*(command+i+10)!=' '){
+            printf("> Usage : createfile -–file <file name and address>\n");
+            return;
     }
     //check for slash
     slashPtr=strstr(command,"/");
-    if(slashPtr==NULL){
+    if(slashPtr==NULL || *(slashPtr+1)==0){
         printf("> dir : /root/... or \"/root/...\"\n");
         return;
     }
     //check for qout
     if(*(slashPtr-1)=='"')
         qoutPtr=slashPtr-1;
-    if(qoutPtr!=NULL && *(command+strLen-1)!='"'){
+    if((qoutPtr!=NULL && *(command+strLen-1)!='"') || (*(command+strLen-2)=='\\' && *(command+strLen-1)=='"')){
         printf("> dir : \"/root/...\"\n");
         return;
     }
     //check for aditinal char between / or " and --file and special character
     if(qoutPtr!=NULL){
-        for(int i=0;(qoutPtr-1-i)!=(filePtr+7);i++){
-            if(*(qoutPtr-1-i)!=' '){
+        for(int i=0;(qoutPtr)>(filePtr+7+i);i++)
+            if(*(filePtr+7+i)!=' '){
                 printf("> Usage : createfile -–file <file name and address>\n");
                 return;
             }
-        }
-        for(int i=0;(qoutPtr+i+1)<(command+strLen-2);i++)
-            if((*(qoutPtr+i+1)!='\\') && (*(qoutPtr+i+2)=='"')){
-                printf("> Usage : undefined character detected\n");
-                return;
-        }
     }
     else{
-        for(int i=0;(slashPtr-1-i)!=(filePtr+7);i++){
+        for(int i=0;(slashPtr)>(filePtr+7+i);i++){
             if(*(slashPtr-1-i)!=' '){
                 printf("> Usage : createfile -–file <file name and address>\n");
                 return;
@@ -125,11 +138,6 @@ void createfile(char *command){
                 printf("> Usage : aditinal space detected\n");
                 return;
             }
-        }
-        for(int i=0;(slashPtr+i)<(command+strLen-1);i++)
-            if((*(slashPtr+i)!='\\') && (*(slashPtr+i+1)=='"')){
-                printf("> Usage : undefined character detected\n");
-                return;
         }
     }
     //make address file
@@ -218,7 +226,7 @@ void insertstr(char *command){
     //check for final qout and -str pos
     if(qoutPtr!=NULL)
         for(int i=0;*(slashPtr+i+1)!=0;i++){
-            if(*(slashPtr+i+1)=='"' && *(slashPtr+i+2)!=0){
+            if(*(slashPtr+i+1)=='"' && *(slashPtr+i+2)!=0 && *(slashPtr+i)!='\\'){
                 lastChar=(slashPtr+i+2);
                 break;
             }
@@ -265,7 +273,7 @@ void insertstr(char *command){
     }
     if(*(strQoutPtr)=='"')
         for(int i=0;*(strQoutPtr+i+1)!=0;i++){
-            if(*(strQoutPtr+i+1)=='"' && *(strQoutPtr+i+2)!=0){
+            if(*(strQoutPtr+i+1)=='"' && *(strQoutPtr+i+2)!=0 && *(strQoutPtr+i)!='\\'){
                 lastCharPtr=(strQoutPtr+i+2);
                 break;
             }
@@ -342,10 +350,8 @@ void insertstr(char *command){
     line=atoi(lineNum);
     character=atoi(charNum);
     //check for file existence
-    if(access(address,F_OK)!=0){
-        printf("> File dose not exists\n");
+    if(PathCheck(address)==0)
         return;
-    }
     //make file
     FILE *letsWrite;
     char *buffer=(char*)malloc(sizeof(char)*1000);
@@ -429,7 +435,7 @@ void insertstr(char *command){
 void cat(char *command){
     char *filePtr,*slashPtr,*qoutPtr=NULL;
     char *address=(char*)malloc(sizeof(char)*100);
-    int filePos,strLen;
+    int strLen;
     strLen=strlen(command);
     filePtr=strstr(command," --file ");
     //check for --file
@@ -438,12 +444,11 @@ void cat(char *command){
         return;
     }
     //check for aditinal char between cat  and --file
-    for(int i=0;*(filePtr-i)==' ';i++)
-        filePos=i;
-     if((filePtr-filePos-3)!=command ){
-        printf("> Usage : cat -–file <file name and address>\n");
-        return;
-    }
+    for(int i=0;(command+3+i)<=filePtr;i++)
+        if(*(command+3+i)!=' '){
+            printf("> Usage : cat -–file <file name and address>\n");
+            return;
+        }
     //check for slash
     slashPtr=strstr(command,"/");
     if(slashPtr==NULL){
@@ -459,16 +464,16 @@ void cat(char *command){
     }
     //check for aditinal char between / or " and --file
     if(qoutPtr!=NULL){
-        for(int i=0;(qoutPtr-1-i)!=(filePtr+7);i++){
-            if(*(qoutPtr-1-i)!=' '){
+        for(int i=0;(qoutPtr)>(filePtr+7+i);i++){
+            if(*(filePtr+7+i)!=' '){
                 printf("> Usage : cat --file <file name and address>\n");
                 return;
             }
         }
     }
     else{
-        for(int i=0;(slashPtr-1-i)!=(filePtr+7);i++){
-            if(*(slashPtr-1-i)!=' '){
+        for(int i=0;(slashPtr)>(filePtr+7+i);i++){
+            if(*(filePtr+7+i)!=' '){
                 printf("> Usage : cat -–file <file name and address>\n");
                 return;
             }
@@ -491,11 +496,18 @@ void cat(char *command){
             *(address+i)=*(slashPtr+i+1);
         }
     }
-    //check for file existence
-    if(access(address,F_OK)!=0){
-        printf("> File dose not exists\n");
+    if(specialCharHandeling(address)==0)
         return;
-    }
+    else
+        for(int i=0;*(address+i)!=0;i++){
+            if(*(address+i)=='\n'){
+                printf("> Usage : undefined character detected\n");
+                return;
+            }
+        }
+    //check for file existence
+    if(PathCheck(address)==0)
+        return;
     //split file name
     char* fileName=(char*)malloc(sizeof(char)*200);
     int lastSlash=0;
@@ -510,7 +522,6 @@ void cat(char *command){
     fseek(letsSee,0,SEEK_SET);
     fread(buffer,1000,1,letsSee);
     printf("// %s\n%s\n",fileName,buffer);
-
 }
 /*void wildCard(char *buffer){
     int curentPtr=0;
@@ -696,7 +707,7 @@ void compare(char *command){
     else{
         int qoutCheck=0;
         for(int i=0;*(slashPtr+1+i)!=0;i++){
-            if(*(slashPtr+1+i)=='"'){
+            if(*(slashPtr+1+i)=='"' &&  *(slashPtr+i+2)!=0 && *(slashPtr+i)!='\\'){
                 qoutCheck=1;
                 break;
             }
@@ -757,7 +768,7 @@ void compare(char *command){
             }
     }
     else{
-        if(*(command+strlen(command)-1)!='"'){
+        if((*(command+strlen(command)-1)!='"') || ((*(command+strlen(command)-1)=='"')  &&  (*(command+strlen(command)-2)='\\' ))){
             printf("> dir : \"/root/...\"\n");
             return;
         }
@@ -782,15 +793,11 @@ void compare(char *command){
                 return;
             }
     //check for address existence
-    if(access(address1,F_OK)!=0){
-        printf("> File dose not exists\n");
+   if(PathCheck(address1)==0)
         return;
-    }
-    if(access(address2,F_OK)!=0){
-        printf("> File dose not exists\n");
+    if(PathCheck(address2)==0)
         return;
-    }
-    //open files
+   //open files
     FILE *file1,*file2;
     char *filePtr1,*filePtr2,*buffer1,*buffer2;
     file1=fopen(address1,"r");
