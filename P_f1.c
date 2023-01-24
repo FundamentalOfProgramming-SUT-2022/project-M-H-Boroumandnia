@@ -6,9 +6,31 @@
 #include<dirent.h>
 void rootFolder(){
     mkdir("root",0777);
+    FILE *file;
+    mkdir("system",0777);
+    file=fopen("system/Clipboard","w+");
+    fclose(file);
 }
 void strText(){
     printf("\n> This project developed by Mohammad Hossein Boroumandni in C.\n>\n");
+}
+void beforChanges(char *address){
+    char *buffer=(char*)malloc(sizeof(char)*1000);
+    char *newAddress=(char*)malloc(sizeof(char)*100);
+    *(newAddress)='s';*(newAddress+1)='y';*(newAddress+2)='s';*(newAddress+3)='t';*(newAddress+4)='e';*(newAddress+5)='m';*(newAddress+6)='/';
+    for(int i=0;*(address+i)!=0;i++)
+        *(newAddress+7+i)=*(address+i);
+    FILE *beforChanges,*Undo;
+    beforChanges=fopen(address,"r");
+    fseek(beforChanges,0,SEEK_SET);
+    fread(buffer,1000,1,beforChanges);
+    fclose(beforChanges);
+    Undo=fopen(newAddress,"w+");
+    fseek(beforChanges,0,SEEK_SET);
+    fputs(buffer,Undo);
+    fclose(Undo);
+    free(newAddress);
+    free(buffer);
 }
 void firstEndSpaceRemoval(char *command){
     int len;
@@ -20,6 +42,33 @@ void firstEndSpaceRemoval(char *command){
     len=strlen(command);
     for(int i=len-1;*(command+i)==' ';i--)
         *(command+i)=0;
+}
+char * commandMaker(char *command,char *position,char *inputString){
+    char *newCommand=(char*)malloc(sizeof(char)*500);
+    int counter=0,bufferCounter=0;
+    for(int i=0;;i++){
+        *(newCommand+i)=*(command+i);
+        bufferCounter=i+1;
+        if(command+i==position){
+            *(newCommand+i+1)=' ';
+            *(newCommand+i+2)='-';
+            *(newCommand+i+3)='s';
+            *(newCommand+i+4)='t';
+            *(newCommand+i+5)='r';
+            *(newCommand+i+6)=' ';
+            *(newCommand+i+7)='"';
+            for(int j=0;*(inputString+j)!=0;j++){
+                *(newCommand+i+j+8)=*(inputString+j);
+                counter=i+j+9;
+            }
+            *(newCommand+counter)='"';
+            *(newCommand+counter+1)=' ';
+            break;
+        }
+    }
+    for(int i=0;*(command+bufferCounter+i)!=0;i++)
+        *(newCommand+i+counter+2)=*(command+i+bufferCounter);
+    return newCommand;
 }
 int  PathCheck(char *address){
     int check=1;
@@ -167,6 +216,10 @@ void createfile(char *command){
         return;
     }
     //make new directories and file
+    char *newAddress=(char*)malloc(sizeof(char)*100);
+    *(newAddress)='s';*(newAddress+1)='y';*(newAddress+2)='s';*(newAddress+3)='t';*(newAddress+4)='e';*(newAddress+5)='m';*(newAddress+6)='/';
+    for(int i=0;*(address+i)!=0;i++)
+        *(newAddress+7+i)=*(address+i);
     for(int i=0;*(address+i)!=0;i++){
         if(*(address+i)=='/'){
             char *folder=(char*)malloc(sizeof(char)*200);
@@ -176,6 +229,17 @@ void createfile(char *command){
             free(folder);
         }
     }
+    //make undo mode file
+    for(int i=0;*(newAddress+i)!=0;i++){
+        if(*(newAddress+i)=='/'){
+            char *folder=(char*)malloc(sizeof(char)*200);
+            for(int j=0;j<i;j++)
+                *(folder+j)=*(newAddress+j);
+            mkdir(folder,0777);
+            free(folder);
+        }
+    }
+    fopen(newAddress,"w+");
     fopen(address,"w+");
     free(address);
 }
@@ -349,10 +413,15 @@ void insertstr(char *command){
     //change sring to numbers
     line=atoi(lineNum);
     character=atoi(charNum);
+    if(line==0){
+        printf("> Usage : Line dose not exists\n");
+        return;
+    }
     //check for file existence
     if(PathCheck(address)==0)
         return;
     //make file
+    beforChanges(address);
     FILE *letsWrite;
     char *buffer=(char*)malloc(sizeof(char)*1000);
     char *newBuffer=(char*)malloc(sizeof(char)*1000);
@@ -378,7 +447,7 @@ void insertstr(char *command){
                 lineCount++;
                 counter=j;
             }
-            for(int j=counter+1;charCount<character-1;j++){
+            for(int j=counter+1;charCount<=character-1;j++){
                 *(newBuffer+j)=' ';
                 charCount++;
                 counter=j;
@@ -431,6 +500,100 @@ void insertstr(char *command){
     fseek(letsWrite,0,SEEK_SET);
     fputs(newBuffer,letsWrite);
     fclose(letsWrite);
+}
+void pastestr(char *command){
+    char *filePtr,*slashPtr,*qoutPtr=NULL,*lastChar=NULL,*posPos=NULL;
+    int filePos;
+    filePtr=strstr(command," --file ");
+    //check for --file
+    if(filePtr==NULL){
+        printf("> Usage : pastestr –file <file name> –pos <line no>:<start position>\n");
+        return;
+    }
+    //check for aditinal char between insertstr and --file
+    for(int i=0;*(filePtr-i)==' ';i++)
+        filePos=i;
+    if((filePtr-filePos-8)!=command ){
+        printf("> Usage : pastestr –file <file name> –pos <line no>:<start position>\n");
+        return;
+    }
+    //check for slash
+    slashPtr=strstr(command,"/");
+    if(slashPtr==NULL){
+        printf("> dir : /root/... or \"/root/...\"\n");
+        return;
+    }
+    //check for qout
+    if(*(slashPtr-1)=='"')
+        qoutPtr=slashPtr-1;
+    //check for aditinal char between " or / and --file
+    if(qoutPtr!=NULL){
+        for(int i=0;(qoutPtr-1-i)!=(filePtr+7);i++){
+            if(*(qoutPtr-1-i)!=' '){
+                printf("> Usage : pastestr –file <file name> –pos <line no>:<start position>\n");
+                return;
+            }
+        }
+    }
+    else{
+        for(int i=0;(slashPtr-1-i)!=(filePtr+7);i++){
+            if(*(slashPtr-1-i)!=' '){
+                printf("> Usage : pastestr –file <file name> –pos <line no>:<start position>\n");
+                return;
+            }
+        }
+    }
+    //check for final qout
+    if(qoutPtr!=NULL){
+        for(int i=0;*(slashPtr+i+1)!=0;i++)
+            if(*(slashPtr+i+1)=='"' && *(slashPtr+i+2)!=0 && *(slashPtr+i)!='\\'){
+                lastChar=(slashPtr+i+2);
+                break;
+            }
+    }
+    else{
+        for(int i=0;*(slashPtr+i+1)!=0;i++)
+            if(*(slashPtr+i+1)==' '){
+                lastChar=(slashPtr+i+1);
+                break;
+            }
+    }
+    //check for the command after address
+    if(lastChar==NULL){
+        printf("> Usage : –pos <line no>:<start position>\n");
+        return;
+    }
+    //check for -pos position
+    posPos=strstr(lastChar," -pos ");
+    if(posPos==NULL){
+        printf("> Usage : –pos <line no>:<start position>\n");
+        return;
+    }
+    for(int i=0;(lastChar+i)<=posPos;i++)
+        if(*(lastChar+i)!=' '){
+        printf("> Usage : –pos <line no>:<start position>\n");
+        return;
+        }
+    //make a file 
+    FILE *file;
+    char *buffer=(char*)malloc(sizeof(char)*1000);
+    file=fopen("system/Clipboard","r+");
+    fread(buffer,1000,1,file);
+    if(*(buffer)==0){
+        printf("> Usage : Clipboard is empty\n");
+        return;
+    }
+    //change command to insertstr
+    char *commandHolder;
+    char *newBuffer=(char*)malloc(sizeof(char)*500);
+    commandHolder=commandMaker(command,lastChar,buffer);
+    *(newBuffer)='i';*(newBuffer+1)='n';*(newBuffer+2)='s';*(newBuffer+3)='e';*(newBuffer+4)='r';*(newBuffer+5)='t';
+    for(int i=0;*(commandHolder+i+5)!=0;i++)
+        *(newBuffer+i+6)=*(commandHolder+i+5);
+    insertstr(newBuffer);
+    fclose(file);
+    free(newBuffer);
+    free(buffer);
 }
 void cat(char *command){
     char *filePtr,*slashPtr,*qoutPtr=NULL;
@@ -522,22 +685,94 @@ void cat(char *command){
     fseek(letsSee,0,SEEK_SET);
     fread(buffer,1000,1,letsSee);
     printf("// %s\n%s\n",fileName,buffer);
+    free(buffer);
+    free(fileName);
+    free(address);
 }
-void removestr(char *command){
+void copystr(char* address,int line,int character,int size,int type){
+    FILE *letsCopy;
+    char *buffer=(char*)malloc(sizeof(char)*1000);
+    char *newBuffer=(char*)malloc(sizeof(char)*1000);
+    int lineCount=0,charCount=0,counter=0;
+    letsCopy=fopen(address,"r+");
+    fseek(letsCopy,0,SEEK_SET);
+    fread(buffer,1000,1,letsCopy);
+    //check for the position and make a newBuffer
+    for(int i=0;;i++){
+        if(*(buffer+i)=='\n')
+            lineCount++;
+        if(*(buffer+i)==0 && lineCount<line-1){
+            printf("> Usage : Position is out of order\n");
+            return;
+        }
+        if(line==1)
+            i--;
+        if(lineCount==line-1){
+            for(int j=1;;j++){
+                if((*(buffer+i+j)==0 || (*(buffer+i+j)=='\n' && character!=charCount)) && character>=charCount){
+                    printf("> Usage : Position is out of order\n");
+                    return;
+                }
+                if(charCount==character){
+                    counter=i+j;
+                    break;
+                }
+                charCount++;
+            }
+            break;
+        }
+    }
+    //check for bigger sizes
+    if(counter+size*type>(strlen(buffer)-1)){
+        printf("> Usage : Size is out of order\n");
+        return;
+    }
+    if((counter+size*type)<0){
+        printf("> Usage : Size is out of order\n");
+        return;
+    }
+    //copy another part of buffer to newBuffer
+    if(type==1)
+        for(int i=0;i<size;i++)
+            *(newBuffer+i)=*(buffer+counter+i+1);
+    else
+        for(int i=0;i<size;i++)
+            *(newBuffer+i)=*(buffer+counter+i-size);
+    fclose(letsCopy);
+    letsCopy=fopen("system/Clipboard","w+");
+    fputs(newBuffer,letsCopy);
+    fclose(letsCopy);
+    free(newBuffer);
+    free(buffer);
+}
+void cutstr(char* address,int line,int character,int size,int type){
+    copystr(address,line,character,size,type);
+}
+void removestr_copy_cut(char *command,int n){
     char *filePtr,*slashPtr,*qoutPtr=NULL,*lastChar=NULL,*signPtr=NULL,*sizePtr=NULL,*typeBPos=NULL,*typeFPos=NULL,*posPos=NULL;
     char *address=(char*)malloc(sizeof(char)*100);
     int filePos;
     filePtr=strstr(command," --file ");
     //check for --file
     if(filePtr==NULL){
-        printf("> Usage : removestr --file <file name> –pos <line no>:<start position> -size <number of characters to remove> -f -b <forward or backward>\n");
+        if(n==9)
+            printf("> Usage : removestr --file <file name> –pos <line no>:<start position> -size <number of characters to remove> -f -b <forward or backward>\n");
+        if(n==7)
+             printf("> Usage : copystr --file <file name> –pos <line no>:<start position> -size <number of characters to copy> -f -b <forward or backward>\n");
+        if(n==6)
+             printf("> Usage : cutstr --file <file name> –pos <line no>:<start position> -size <number of characters to cut> -f -b <forward or backward>\n");
         return;
     }
     //check for aditinal char between insertstr and --file
     for(int i=0;*(filePtr-i)==' ';i++)
         filePos=i;
-    if((filePtr-filePos-9)!=command ){
-        printf("> Usage : removestr –file <file name> –pos <line no>:<start position> -size <number of characters to remove> -f -b <forward or backward>\n");
+    if((filePtr-filePos-n)!=command ){
+        if(n==9)
+            printf("> Usage : removestr --file <file name> –pos <line no>:<start position> -size <number of characters to remove> -f -b <forward or backward>\n");
+        if(n==7)
+             printf("> Usage : copystr --file <file name> –pos <line no>:<start position> -size <number of characters to copy> -f -b <forward or backward>\n");
+        if(n==6)
+             printf("> Usage : cutstr --file <file name> –pos <line no>:<start position> -size <number of characters to cut> -f -b <forward or backward>\n");
         return;
     }
     //check for slash
@@ -553,7 +788,12 @@ void removestr(char *command){
     if(qoutPtr!=NULL){
         for(int i=0;(qoutPtr-1-i)!=(filePtr+7);i++){
             if(*(qoutPtr-1-i)!=' '){
-                printf("> Usage : removestr –file <file name> –pos <line no>:<start position> -size <number of characters to remove> -f -b <forward or backward>\n");
+                if(n==9)
+                    printf("> Usage : removestr --file <file name> –pos <line no>:<start position> -size <number of characters to remove> -f -b <forward or backward>\n");
+                if(n==7)
+                    printf("> Usage : copystr --file <file name> –pos <line no>:<start position> -size <number of characters to copy> -f -b <forward or backward>\n");
+                if(n==6)
+                    printf("> Usage : cutstr --file <file name> –pos <line no>:<start position> -size <number of characters to cut> -f -b <forward or backward>\n");
                 return;
             }
         }
@@ -561,7 +801,12 @@ void removestr(char *command){
     else{
         for(int i=0;(slashPtr-1-i)!=(filePtr+7);i++){
             if(*(slashPtr-1-i)!=' '){
-                printf("> Usage : removestr –file <file name> –pos <line no>:<start position> -size <number of characters to remove> -f -b <forward or backward>\n");
+                 if(n==9)
+                    printf("> Usage : removestr --file <file name> –pos <line no>:<start position> -size <number of characters to remove> -f -b <forward or backward>\n");
+                if(n==7)
+                    printf("> Usage : copystr --file <file name> –pos <line no>:<start position> -size <number of characters to copy> -f -b <forward or backward>\n");
+                if(n==6)
+                    printf("> Usage : cutstr --file <file name> –pos <line no>:<start position> -size <number of characters to cut> -f -b <forward or backward>\n");
                 return;
             }
         }
@@ -585,7 +830,7 @@ void removestr(char *command){
         }
     //check for the command after address
     if(lastChar==NULL){
-        printf("> Usage : –pos <line no>:<start position> -size <number of characters to remove> -f -b <forward or backward>\n");
+        printf("> Usage : –pos <line no>:<start position> -size <number of characters> -f -b <forward or backward>\n");
         return;
     }
     if(specialCharHandeling(address)==0)
@@ -600,12 +845,12 @@ void removestr(char *command){
     //check for -pos position
     posPos=strstr(lastChar," -pos ");
     if(posPos==NULL){
-        printf("> Usage : –pos <line no>:<start position> -size <number of characters to remove> -f -b <forward or backward>\n");
+        printf("> Usage : –pos <line no>:<start position> -size <number of characters> -f -b <forward or backward>\n");
         return;
     }
     for(int i=0;(lastChar+i)<=posPos;i++)
         if(*(lastChar+i)!=' '){
-        printf("> Usage : –pos <line no>:<start position> -size <number of characters to remove> -f -b <forward or backward>\n");
+        printf("> Usage : –pos <line no>:<start position> -size <number of characters> -f -b <forward or backward>\n");
         return;
         }
     //check for : sign
@@ -615,13 +860,13 @@ void removestr(char *command){
     char *sizeOfMove=(char*)malloc(sizeof(char)*30);
     signPtr=strstr(posPos+5,":");
     if(signPtr==NULL){
-        printf("> Usage : –pos <line no>:<start position> -size <number of characters to remove> -f -b <forward or backward>\n");
+        printf("> Usage : –pos <line no>:<start position> -size <number of characters> -f -b <forward or backward>\n");
         return;
     }
     //check for aditinal char between numbers
     for(int i=0;(posPos+5+i)<signPtr;i++){
         if((*(posPos+5+i)<48 || *(posPos+5+i)>57) && *(posPos+5+i)!=' '){
-            printf("> Usage : –pos <line no>:<start position> -size <number of characters to remove> -f -b <forward or backward>\n");
+            printf("> Usage : –pos <line no>:<start position> -size <number of characters> -f -b <forward or backward>\n");
             return;
         }
         *(lineNum+i)=*(posPos+5+i);
@@ -629,12 +874,12 @@ void removestr(char *command){
     //check for -size position
     sizePtr=strstr(posPos+5," -size ");
     if(sizePtr==NULL){
-        printf("> Usage : –pos <line no>:<start position> -size <number of characters to remove> -f -b <forward or backward>\n");
+        printf("> Usage : –pos <line no>:<start position> -size <number of characters> -f -b <forward or backward>\n");
         return;
     }
     for(int i=0;(signPtr+i+1)<=sizePtr;i++){
         if((*(signPtr+1+i)<48 || *(signPtr+1+i)>57) && *(signPtr+1+i)!=' '){
-            printf("> Usage : –pos <line no>:<start position> -size <number of characters to remove> -f -b <forward or backward>\n");
+            printf("> Usage : –pos <line no>:<start position> -size <number of characters> -f -b <forward or backward>\n");
             return;
         }
         *(charNum+i)=*(signPtr+1+i);
@@ -644,21 +889,25 @@ void removestr(char *command){
     //check for additional spaces
     for(int i=0;*(lineNum+i)!=0;i++)
         if(*(lineNum+i)==' '){
-            printf("> Usage : –pos <line no>:<start position> -size <number of characters to remove> -f -b <forward or backward>\n");
+            printf("> Usage : –pos <line no>:<start position> -size <number of characters> -f -b <forward or backward>\n");
             return;
         }
     for(int i=0;*(charNum+i)!=0;i++)
         if(*(lineNum+i)==' '){
-            printf("> Usage : –pos <line no>:<start position> -size <number of characters to remove> -f -b <forward or backward>\n");
+            printf("> Usage : –pos <line no>:<start position> -size <number of characters> -f -b <forward or backward>\n");
             return;
         }
     //make number out of strings
     line=atoi(lineNum);
     character=atoi(charNum);
+    if(line==0){
+        printf("> Usage : Line dose not exists\n");
+        return;
+    }
     typeBPos=strstr(sizePtr+6," -b\0");
     typeFPos=strstr(sizePtr+6," -f\0");
     if(typeBPos==NULL && typeFPos==NULL){
-        printf("> Usage : –pos <line no>:<start position> -size <number of characters to remove> -f -b <forward or backward>\n");
+        printf("> Usage : –pos <line no>:<start position> -size <number of characters> -f -b <forward or backward>\n");
         return;
     }
     //check for -b or -f
@@ -670,7 +919,7 @@ void removestr(char *command){
     if(typeBPos!=NULL){
         for(int i=0;(sizePtr+6+i)<=typeBPos;i++){
             if((*(sizePtr+6+i)<48 || *(sizePtr+6+i)>57) && *(sizePtr+6+i)!=' '){
-            printf("> Usage : –pos <line no>:<start position> -size <number of characters to remove> -f -b <forward or backward>\n");
+            printf("> Usage : –pos <line no>:<start position> -size <number of characters> -f -b <forward or backward>\n");
             return;
         }
         *(sizeOfMove+i)=*(sizePtr+6+i);
@@ -679,7 +928,7 @@ void removestr(char *command){
     else{
         for(int i=0;(sizePtr+6+i)<=typeFPos;i++){
             if(*(sizePtr+6+i)<48 && *(sizePtr+6+i)>57 && *(sizePtr+6+i)!=' '){
-                printf("> Usage : –pos <line no>:<start position> -size <number of characters to remove> -f -b <forward or backward>\n");
+                printf("> Usage : –pos <line no>:<start position> -size <number of characters> -f -b <forward or backward>\n");
                 return;
         }
         *(sizeOfMove+i)=*(sizePtr+6+i);
@@ -689,12 +938,20 @@ void removestr(char *command){
     firstEndSpaceRemoval(sizeOfMove);
     for(int i=0;*(sizeOfMove+i)!=0;i++)
         if(*(sizeOfMove+i)==' '){
-            printf("> Usage : size <number of characters to remove> -f -b <forward or backward>\n");
+            printf("> Usage : size <number of characters> -f -b <forward or backward>\n");
             return;
         }
     size=atoi(sizeOfMove);
     if(PathCheck(address)==0)
         return;
+    if(n==7){
+        copystr(address,line,character,size,type);
+        return;
+    }
+    if(n==6){
+        cutstr(address,line,character,size,type);
+    }
+    beforChanges(address);
     //make file and open it in read mode
     FILE *letsDelete;
     char *buffer=(char*)malloc(sizeof(char)*1000);
@@ -763,6 +1020,11 @@ void removestr(char *command){
     fseek(letsDelete,0,SEEK_SET);
     fputs(newBuffer,letsDelete);
     fclose(letsDelete);
+    free(address);
+    free(lineNum);
+    free(charNum);
+    free(buffer);
+    free(newBuffer);
 }
 /*void wildCard(char *buffer){
     int curentPtr=0;
@@ -899,6 +1161,114 @@ void find(char *command){
         //wildCard(buffer);
         fclose(find);
     }
+    free(text);
+    free(address);
+    free(buffer);
+}
+void undo(char *command){
+    char *filePtr,*slashPtr,*qoutPtr=NULL;
+    char *address=(char*)malloc(sizeof(char)*100);
+    int strLen;
+    strLen=strlen(command);
+    filePtr=strstr(command," --file ");
+    //check for --file
+    if(filePtr==NULL){
+        printf("> Usage : undo -–file <file name and address>\n");
+        return;
+    }
+    //check for aditinal char between createfile and --file
+    for(int i=0;(command+i+4)<=filePtr;i++)
+        if(*(command+i+4)!=' '){
+            printf("> Usage : undo -–file <file name and address>\n");
+            return;
+    }
+    //check for slash
+    slashPtr=strstr(command,"/");
+    if(slashPtr==NULL || *(slashPtr+1)==0){
+        printf("> dir : /root/... or \"/root/...\"\n");
+        return;
+    }
+    //check for qout
+    if(*(slashPtr-1)=='"')
+        qoutPtr=slashPtr-1;
+    if((qoutPtr!=NULL && *(command+strLen-1)!='"') || (*(command+strLen-2)=='\\' && *(command+strLen-1)=='"')){
+        printf("> dir : \"/root/...\"\n");
+        return;
+    }
+    //check for aditinal char between / or " and --file and special character
+    if(qoutPtr!=NULL){
+        for(int i=0;(qoutPtr)>(filePtr+7+i);i++)
+            if(*(filePtr+7+i)!=' '){
+                printf("> Usage : undo -–file <file name and address>\n");
+                return;
+            }
+    }
+    else{
+        for(int i=0;(slashPtr)>(filePtr+7+i);i++){
+            if(*(slashPtr-1-i)!=' '){
+                printf("> Usage : undo -–file <file name and address>\n");
+                return;
+            }
+        }
+        for(int i=0;*(slashPtr+i)!=0;i++){
+            if(*(slashPtr+i)==' '){
+                printf("> Usage : aditinal space detected\n");
+                return;
+            }
+        }
+    }
+    //make address file
+    if(qoutPtr!=NULL){
+        for(int i=0;(slashPtr+i+1)!=(command+strLen-1);i++){
+            *(address+i)=*(slashPtr+i+1);
+        }
+    }
+    else{
+        for(int i=0;(slashPtr+i+1)!=(command+strLen);i++){
+            *(address+i)=*(slashPtr+i+1);
+        }
+    }
+    //check for special character
+    if(specialCharHandeling(address)==0)
+        return;
+    else
+        for(int i=0;*(address+i)!=0;i++){
+            if(*(address+i)=='\n'){
+                printf("> Usage : undefined character detected\n");
+                return;
+            }
+        }
+    //check for correct path and file
+    if(PathCheck(address)==0)
+        return;
+    //make tow file and put the contects of them into the other
+    char *buffer=(char*)malloc(sizeof(char)*1000);
+    char *newbuffer=(char*)malloc(sizeof(char)*1000);
+    char *newAddress=(char*)malloc(sizeof(char)*100);
+    *(newAddress)='s';*(newAddress+1)='y';*(newAddress+2)='s';*(newAddress+3)='t';*(newAddress+4)='e';*(newAddress+5)='m';*(newAddress+6)='/';
+    for(int i=0;*(address+i)!=0;i++)
+        *(newAddress+7+i)=*(address+i);
+    FILE *afterChanges,*Undo;
+    afterChanges=fopen(address,"r");
+    fseek(afterChanges,0,SEEK_SET);
+    fread(buffer,1000,1,afterChanges);
+    fclose(afterChanges);
+    Undo=fopen(newAddress,"r");
+    fread(newbuffer,1000,1,Undo);
+    fseek(Undo,0,SEEK_SET);
+    fclose(Undo);
+    Undo=fopen(newAddress,"w+");
+    fseek(Undo,0,SEEK_SET);
+    fputs(buffer,Undo);
+    fclose(Undo);
+    afterChanges=fopen(address,"w+");
+    fseek(afterChanges,0,SEEK_SET);
+    fputs(newbuffer,afterChanges);
+    fclose(afterChanges);
+    free(buffer);
+    free(newbuffer);
+    free(newAddress);
+    free(address);
 }
 void compare(char *command){
     char *slashPtr=NULL,*snSlashPtr=NULL,*qoutPtr=NULL,*snQoutPtr=NULL;
@@ -1156,9 +1526,11 @@ void treeCommandReader(char* command){
     printf("root\n");
     //use recursive function to print every directories
     treeDepthPrint(depth,0,"root");
+    free(depthString);
 }
 void commandDetector(char *command){
     if(!strcmp(command,"end")){
+         system("rm -r system");
          printf("> Exiting  Programm ...\n\n");
          exit(0);
          return;
@@ -1176,11 +1548,27 @@ void commandDetector(char *command){
          return;
     }
     if(strstr(command,"removestr ")==command || !strcmp(command,"removestr")){
-         removestr(command);
+         removestr_copy_cut(command,9);
+         return;
+    }
+    if(strstr(command,"copystr ")==command || !strcmp(command,"copystr")){
+         removestr_copy_cut(command,7);
+         return;
+    }
+    if(strstr(command,"cutstr ")==command || !strcmp(command,"cutstr")){
+         removestr_copy_cut(command,6);
+         return;
+    }
+    if(strstr(command,"pastestr ")==command || !strcmp(command,"pastestr")){
+         pastestr(command);
          return;
     }
     if(strstr(command,"find ")==command || !strcmp(command,"find")){
          find(command);
+         return;
+    }
+    if(strstr(command,"undo ")==command || !strcmp(command,"undo")){
+         undo(command);
          return;
     }
     if(strstr(command,"compare ")==command || !strcmp(command,"compare")){
