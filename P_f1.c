@@ -1154,7 +1154,7 @@ void find(char *command){
         typePos=NULL;
     FILE *find;
     char *buffer=(char *)malloc(sizeof(char)*1000);
-    char *findPos=NULL;
+    //char *findPos=NULL;
     if(typePos==NULL){
         find=fopen(address,"r");
         fread(buffer,1000,1,find);
@@ -1269,6 +1269,204 @@ void undo(char *command){
     free(newbuffer);
     free(newAddress);
     free(address);
+}
+void auto_indent(char *command){
+    char *slashPtr,*qoutPtr=NULL;
+    char *address=(char*)malloc(sizeof(char)*100);
+    int strLen;
+    strLen=strlen(command);
+    //check for slash
+    slashPtr=strstr(command,"/");
+    if(slashPtr==NULL || *(slashPtr+1)==0){
+        printf("> dir : /root/... or \"/root/...\"\n");
+        return;
+    }
+    //check for qout
+    if(*(slashPtr-1)=='"')
+        qoutPtr=slashPtr-1;
+    if((qoutPtr!=NULL && *(command+strLen-1)!='"') || (*(command+strLen-2)=='\\' && *(command+strLen-1)=='"')){
+        printf("> dir : \"/root/...\"\n");
+        return;
+    }
+    if(qoutPtr!=NULL){
+        for(int i=0;(qoutPtr)>(command+11+i);i++)
+            if(*(command+11+i)!=' '){
+                printf("> Usage : auto-indent <file>\n");
+                return;
+            }
+    }
+    else{
+        for(int i=0;(slashPtr)>(command+11+i);i++){
+            if(*(command+11+i)!=' '){
+                printf("> Usage : auto-indent <file>\n");
+                return;
+            }
+        }
+        for(int i=0;*(slashPtr+i)!=0;i++){
+            if(*(slashPtr+i)==' '){
+                printf("> Usage : aditinal space detected\n");
+                return;
+            }
+        }
+    }
+    //make address file
+    if(qoutPtr!=NULL){
+        for(int i=0;(slashPtr+i+1)!=(command+strLen-1);i++){
+            *(address+i)=*(slashPtr+i+1);
+        }
+    }
+    else{
+        for(int i=0;(slashPtr+i+1)!=(command+strLen);i++){
+            *(address+i)=*(slashPtr+i+1);
+        }
+    }
+    //check for special character
+    if(specialCharHandeling(address)==0)
+        return;
+    else
+        for(int i=0;*(address+i)!=0;i++){
+            if(*(address+i)=='\n'){
+                printf("> Usage : undefined character detected\n");
+                return;
+            }
+        }
+    //check for correct path and file
+    if(PathCheck(address)==0)
+        return;
+    beforChanges(address);
+    //make file
+    FILE *file;
+    char *bufferS=(char*)malloc(sizeof(char)*1000);
+    char *buffer=(char*)malloc(sizeof(char)*1000);
+    char *newBuffer=(char*)malloc(sizeof(char)*1000);
+    //open in read mode and get the content of file
+    file=fopen(address,"r");
+    fseek(file,0,SEEK_SET);
+    fread(bufferS,1000,1,file);
+    fclose(file);
+    //delte spaces after } or {
+    int count=0;
+    for(int i=0;*(bufferS+i)!=0;i++){
+        *(buffer+count)=*(bufferS+i);
+        count++;
+        if(*(bufferS+i)=='{'){
+            for(int j=0;*(bufferS+i+j+1)!=0;j++)
+                if(*(bufferS+i+j+1)!=' '){
+                    i=i+j;
+                    break;
+                }
+        }
+        if(*(bufferS+i)=='}'){
+            for(int j=0;*(bufferS+i+j+1)!=0;j++)
+                 if(*(bufferS+i+j+1)!=' '){
+                    i=i+j;
+                    break;
+                }
+        }
+    }
+    //delte spaces before { }
+    for(int i=0;*(buffer+i)!=0;i++){
+        if(*(buffer+i)=='{' || *(buffer+i)=='}'){
+            for(int j=i-1;;j--){
+                if(*(buffer+j)=='\n' || j==0)
+                    break;
+                else 
+                if(*(buffer+j)==' '){
+                    for(int k=j;*(buffer+k)!=0;k++)
+                        *(buffer+k)=*(buffer+k+1);
+                    i=0;
+                    break;
+                }else
+                    break;
+            }
+        }
+        if(*(buffer+i)=='\n' && *(buffer+i+1)==' '){
+            for(int j=i+1;*(buffer+j)!=0;j++){
+                *(buffer+j)=*(buffer+j+1);
+            }
+            i=0;
+        }
+    }
+    //indenting
+    int braces=0,counter=0;
+    for(int i=0;*(buffer+i)!=0;i++){
+        if(*(buffer+i)=='{')
+            braces++;
+        if(*(buffer+i)=='}')
+            braces--;
+        if(braces<0){
+            printf("> Invalid use of braces\n");
+            return;
+        }
+        *(newBuffer+counter)=*(buffer+i);
+        if(*(buffer+i)=='{'){
+            if(count>=1 && *(newBuffer+counter-1)=='\n')
+                for(int j=0;j<(braces-1)*4;j++){
+                    *(newBuffer+counter)=' ';
+                    counter++;
+                }
+            if(*(newBuffer+counter-1)!='\n'  && *(newBuffer+counter-1)!=' ' && counter>1){
+                *(newBuffer+counter)=' ';
+                counter++;
+            }
+            *(newBuffer+counter)='{';
+                if(*(buffer+i+1)!='\n'){
+                    *(newBuffer+counter+1)='\n';
+                    counter=counter+2;
+                }
+                else{
+                    counter++;
+                }
+        }else
+        if(*(buffer+i)=='}'){
+            for(int j=0;j<(braces)*4;j++){
+                *(newBuffer+counter)=' ';
+                counter++;
+            }
+            if(*(newBuffer+counter-(braces)*4-1)!='\n'){
+                *(newBuffer+counter)='\n';
+                counter++;
+                for(int j=0;j<(braces)*4;j++){
+                    *(newBuffer+counter)=' ';
+                    counter++;
+                }
+                *(newBuffer+counter)='}';
+                *(newBuffer+counter+1)='\n';
+                counter=counter+2;
+            }else{
+                *(newBuffer+counter)='}';
+                if(*(buffer+i+1)!='\n'){
+                    *(newBuffer+counter+1)='\n';
+                    counter=counter+2;   
+                }
+                else{
+                    counter++;
+                }
+            }
+        }
+        else{
+            if(*(newBuffer+counter-1)=='\n'){
+                for(int j=0;j<(braces)*4;j++){
+                    *(newBuffer+counter)=' ';
+                    counter++;
+                }
+            }
+            *(newBuffer+counter)=*(buffer+i);
+                counter++;
+        }
+    }
+    if(braces!=0){
+        printf("> Warning : Left and right braces are not equal\n");
+    }
+    //rewrite the file 
+    file=fopen(address,"w+");
+    fseek(file,0,SEEK_SET);
+    fputs(newBuffer,file);
+    fclose(file);
+    free(address);
+    free(buffer);
+    free(bufferS);
+    free(newBuffer);
 }
 void compare(char *command){
     char *slashPtr=NULL,*snSlashPtr=NULL,*qoutPtr=NULL,*snQoutPtr=NULL;
@@ -1530,7 +1728,6 @@ void treeCommandReader(char* command){
 }
 void commandDetector(char *command){
     if(!strcmp(command,"end")){
-         system("rm -r system");
          printf("> Exiting  Programm ...\n\n");
          exit(0);
          return;
@@ -1569,6 +1766,10 @@ void commandDetector(char *command){
     }
     if(strstr(command,"undo ")==command || !strcmp(command,"undo")){
          undo(command);
+         return;
+    }
+    if(strstr(command,"auto-indent ")==command || !strcmp(command,"auto-indent")){
+         auto_indent(command);
          return;
     }
     if(strstr(command,"compare ")==command || !strcmp(command,"compare")){
