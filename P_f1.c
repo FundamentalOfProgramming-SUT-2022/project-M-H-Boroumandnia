@@ -7,8 +7,8 @@
 void rootFolder(){
     mkdir("root",0777);
     FILE *file;
-    mkdir("system",0777);
-    file=fopen("system/Clipboard","w+");
+    mkdir(".system",0777);
+    file=fopen(".system/Clipboard","w+");
     fclose(file);
 }
 void strText(){
@@ -17,9 +17,9 @@ void strText(){
 void beforChanges(char *address){
     char *buffer=(char*)malloc(sizeof(char)*1000);
     char *newAddress=(char*)malloc(sizeof(char)*100);
-    *(newAddress)='s';*(newAddress+1)='y';*(newAddress+2)='s';*(newAddress+3)='t';*(newAddress+4)='e';*(newAddress+5)='m';*(newAddress+6)='/';
+    *(newAddress)='.';*(newAddress+1)='s';*(newAddress+2)='y';*(newAddress+3)='s';*(newAddress+4)='t';*(newAddress+5)='e';*(newAddress+6)='m';*(newAddress+7)='/';
     for(int i=0;*(address+i)!=0;i++)
-        *(newAddress+7+i)=*(address+i);
+        *(newAddress+8+i)=*(address+i);
     FILE *beforChanges,*Undo;
     beforChanges=fopen(address,"r");
     fseek(beforChanges,0,SEEK_SET);
@@ -70,7 +70,7 @@ char * commandMaker(char *command,char *position,char *inputString){
         *(newCommand+i+counter+2)=*(command+i+bufferCounter);
     return newCommand;
 }
-int  PathCheck(char *address){
+int  PathCheck(char *address,int grep){
     int check=1;
     int lastSlash=0;
     char *dirPath=(char*)malloc(sizeof(char)*100);
@@ -80,12 +80,20 @@ int  PathCheck(char *address){
     for(int i=0;i<lastSlash;i++)
         *(dirPath+i)=*(address+i);
     if(access(dirPath,X_OK)!=0){
-        printf("> Path dose not exists\n");
-        return 0;
+        if(grep==0){
+            printf("> Path dose not exists\n");
+            return 0;
+        }
+        if(grep==1)
+            return 0;
     }
     if(access(address,F_OK)!=0){
-        printf("> File dose not exists\n");
-        return 0;
+        if(grep==0){
+            printf("> File dose not exists\n");
+            return 0;   
+        }
+        if(grep==1)
+            return -1;
     }
     return check;
 }
@@ -217,9 +225,9 @@ void createfile(char *command){
     }
     //make new directories and file
     char *newAddress=(char*)malloc(sizeof(char)*100);
-    *(newAddress)='s';*(newAddress+1)='y';*(newAddress+2)='s';*(newAddress+3)='t';*(newAddress+4)='e';*(newAddress+5)='m';*(newAddress+6)='/';
-    for(int i=0;*(address+i)!=0;i++)
-        *(newAddress+7+i)=*(address+i);
+      *(newAddress)='.';*(newAddress+1)='s';*(newAddress+2)='y';*(newAddress+3)='s';*(newAddress+4)='t';*(newAddress+5)='e';*(newAddress+6)='m';*(newAddress+7)='/';   
+      for(int i=0;*(address+i)!=0;i++)
+        *(newAddress+8+i)=*(address+i);
     for(int i=0;*(address+i)!=0;i++){
         if(*(address+i)=='/'){
             char *folder=(char*)malloc(sizeof(char)*200);
@@ -418,7 +426,7 @@ void insertstr(char *command){
         return;
     }
     //check for file existence
-    if(PathCheck(address)==0)
+    if(PathCheck(address,0)==0)
         return;
     //make file
     beforChanges(address);
@@ -669,7 +677,7 @@ void cat(char *command){
             }
         }
     //check for file existence
-    if(PathCheck(address)==0)
+    if(PathCheck(address,0)==0)
         return;
     //split file name
     char* fileName=(char*)malloc(sizeof(char)*200);
@@ -942,7 +950,7 @@ void removestr_copy_cut(char *command,int n){
             return;
         }
     size=atoi(sizeOfMove);
-    if(PathCheck(address)==0)
+    if(PathCheck(address,0)==0)
         return;
     if(n==7){
         copystr(address,line,character,size,type);
@@ -1026,18 +1034,71 @@ void removestr_copy_cut(char *command,int n){
     free(buffer);
     free(newBuffer);
 }
-/*void wildCard(char *buffer){
-    int curentPtr=0;
-    char *newBuffer;
-    char wildCard[100][100];
-    while(1){
-        newBuffer=(char*)malloc(sizeof(char)*1000);
-        for(int i=0;*(buffer+i)!=*) 
-    
-    }   
-}*/
+int wildCard(char *buffer,char *search){
+    int check=1,counter=0,counterP=0,counterPO=0,start=0;
+    for(int i=0;;i++){
+        if(*(search+i)==0){
+            if(*(buffer+counter)!=0 && *(buffer+counter)!='\n' &&  *(buffer+counter)!=' '){
+                i=0;
+            }
+            else if((start!=0 &&  *(buffer+start-1)!=' ' && *(buffer+start-1)!='\n')){
+                i=0;
+            }
+            else{
+                check=1;
+                break;
+            }
+        }
+        if(*(buffer+counter)==0){
+            check=0;
+            break;
+        }
+        if(*(search+i)=='*' && (*(search+i+1)==' ' || *(search+i+1)==0)){
+            for(int j=0;*(buffer+j+counter)!=0;j++){
+                if(*(buffer+j+counter)==' ' || *(buffer+j+counter)=='\n' || *(buffer+j+counter)==0)
+                    break;
+                counterP=j+counter;
+            }
+            counter=counterP+1;
+            continue;
+        }
+        if(*(search+i)=='*' && (i==0 || *(search+i-1)==' ') && ((*(search+i+1)!=' ' && *(search+i+1)!=0))){
+            for(int j=0;*(buffer+j+counter)!=0;j++){
+                if(*(buffer+j+counter)==' ' || *(buffer+j+counter)=='\n' || *(buffer+j+counter)==0){
+                    for(int k=0;;k++){
+                        counterPO=i+k-1;
+                        if(*(search+i+k)==0 || *(search+i+k)==' ' || *(search+i+k)=='\n')
+                            break;
+                    }
+                    for(int k=0;*(search+counterPO-k)!='*';k++){
+                        if(*(buffer+j+counter-1-k)!=*(search+counterPO-k)){
+                            i=0;
+                            start=counter;
+                            break;
+                        }
+                    }
+                    break;
+                }
+                counterP=j+counter;
+            }
+            counter=counterP+1;
+            i=counterPO;
+            continue;
+        }
+        if(*(search+i)!=*(buffer+counter)){
+            i=0;
+            start=counter;
+        }
+        counter++; 
+    }
+    if(check==1)
+        return start;
+    else
+        return -1;
+}
 void find(char *command){
-    char *filePos=NULL,*stringPos=NULL,*firstChar=NULL,*stringQoutPtr=NULL,*posDistance=NULL,*typePos=NULL;
+    char *filePos=NULL,*stringPos=NULL,*firstChar=NULL,*stringQoutPtr=NULL,*posDistance=NULL;
+    int typePos=0;
     char *text=(char*)malloc(sizeof(char)*300);
     char *address=(char*)malloc(sizeof(char)*300);
     stringPos=strstr(command," -str ");
@@ -1148,18 +1209,114 @@ void find(char *command){
                 return;
             }
         }
-    if(qoutPtr!=NULL && (*(typeDistance+1)=0))
-        typePos=NULL;
+    if(qoutPtr!=NULL && (*(typeDistance)==0))
+        typePos=1;
     if(qoutPtr==NULL && typeDistance==NULL)
-        typePos=NULL;
+        typePos=1;
+    int countNumber=0;
+    char *countPos=NULL,*wordPos=NULL,*atPos=NULL,*allPos=NULL,*bufferAlter=NULL;
+    if(typeDistance!=NULL && *(typeDistance)!=0){
+        countPos=strstr(typeDistance," -count");
+        wordPos=strstr(typeDistance," -byword");
+        atPos=strstr(typeDistance," -at");
+        allPos=strstr(typeDistance," -all");
+    }
+    if(countPos!=NULL && atPos!=NULL){
+        printf("> Usage : opetions can not be excuted\n");
+        return;
+    }
+    if(atPos!=NULL && allPos!=NULL){
+        printf("> Usage : opetions can not be excuted\n");
+        return;
+    }
     FILE *find;
     char *buffer=(char *)malloc(sizeof(char)*1000);
-    //char *findPos=NULL;
-    if(typePos==NULL){
-        find=fopen(address,"r");
-        fread(buffer,1000,1,find);
-        //wildCard(buffer);
-        fclose(find);
+    char *number=(char *)malloc(sizeof(char)*30);
+    int tonum=0;
+    find=fopen(address,"r");
+    fread(buffer,1000,1,find);
+    fclose(find);
+    if(typePos==1){
+        printf("%d\n",wildCard(buffer,text));
+    }
+    if(countPos!=NULL && atPos==NULL){
+        bufferAlter=buffer;
+        while(1){
+            if(wildCard(bufferAlter,text)==-1)
+                break;
+            countNumber++;
+            bufferAlter=bufferAlter+wildCard(bufferAlter,text)+1;
+        }
+        printf("%d\n",countNumber);
+    }
+    if(wordPos!=NULL && countPos==NULL && atPos==NULL && allPos==NULL){
+        int wordNum=0;
+        for(int i=0;i<=wildCard(buffer,text);i++){
+            if((*(buffer+i)==' ' || *(buffer+i)=='\n') && (*(buffer+i+1)!=' ' && *(buffer+i+1)!='\n' ))
+                wordNum++;
+        }
+        printf("%d\n",wordNum);
+    }
+    if(allPos!=NULL && countPos==NULL && atPos==NULL){
+        bufferAlter=buffer;
+        int coma=0;
+        while(1){
+            if(wildCard(bufferAlter,text)==-1)
+                break;
+            if(wordPos==NULL){
+                if(coma!=0)
+                    printf(" , %ld",bufferAlter-buffer+wildCard(bufferAlter,text));
+                else 
+                    printf("%ld",bufferAlter-buffer+wildCard(bufferAlter,text));
+            }
+            else{
+                int wordNum=0;
+                for(int i=0;i<=bufferAlter-buffer+wildCard(bufferAlter,text);i++){
+                    if((*(buffer+i)==' ' || *(buffer+i)=='\n') && (*(buffer+i+1)!=' ' && *(buffer+i+1)!='\n' ))
+                        wordNum++;
+                }
+                if(coma!=0)
+                    printf(" , %d",wordNum);
+                else
+                    printf("%d",wordNum);                          
+            }
+            bufferAlter=bufferAlter+wildCard(bufferAlter,text)+1;
+            coma++;
+        }
+        printf("\n");
+    }
+    if(atPos!=NULL &&  allPos==NULL && countPos==NULL){
+        for(int i=0;*(atPos+5+i)!=0;i++){
+            if(*(atPos+5+i)==' ')
+                break;
+            *(number+i)=*(atPos+5+i);
+        }
+        tonum=atoi(number);
+        bufferAlter=buffer;
+        int coma=0;
+        while(1){
+            if(wildCard(bufferAlter,text)==-1)
+                break;
+            coma++;
+            if(coma==tonum)
+                break;
+            bufferAlter=bufferAlter+wildCard(bufferAlter,text)+1;
+        }
+        if(coma<tonum)
+            printf("-1\n");
+        else if(wordPos!=NULL){
+            int wordNum=0;
+            for(int i=0;i<=bufferAlter-buffer+wildCard(bufferAlter,text);i++){
+            if((*(buffer+i)==' ' || *(buffer+i)=='\n') && (*(buffer+i+1)!=' ' &&  *(buffer+i+1)!='\n' ))
+                wordNum++;
+        }
+        printf("%d\n",wordNum);
+        }
+        else
+            printf("%ld\n",bufferAlter-buffer+wildCard(bufferAlter,text));
+    }
+    if(atPos!=NULL && wordPos!=NULL){
+
     }
     free(text);
     free(address);
@@ -1239,15 +1396,15 @@ void undo(char *command){
             }
         }
     //check for correct path and file
-    if(PathCheck(address)==0)
+    if(PathCheck(address,0)==0)
         return;
     //make tow file and put the contects of them into the other
     char *buffer=(char*)malloc(sizeof(char)*1000);
     char *newbuffer=(char*)malloc(sizeof(char)*1000);
     char *newAddress=(char*)malloc(sizeof(char)*100);
-    *(newAddress)='s';*(newAddress+1)='y';*(newAddress+2)='s';*(newAddress+3)='t';*(newAddress+4)='e';*(newAddress+5)='m';*(newAddress+6)='/';
+    *(newAddress)='.';*(newAddress+1)='s';*(newAddress+2)='y';*(newAddress+3)='s';*(newAddress+4)='t';*(newAddress+5)='e';*(newAddress+6)='m';*(newAddress+7)='/';
     for(int i=0;*(address+i)!=0;i++)
-        *(newAddress+7+i)=*(address+i);
+        *(newAddress+8+i)=*(address+i);
     FILE *afterChanges,*Undo;
     afterChanges=fopen(address,"r");
     fseek(afterChanges,0,SEEK_SET);
@@ -1269,6 +1426,185 @@ void undo(char *command){
     free(newbuffer);
     free(newAddress);
     free(address);
+}
+void grep(char *command){
+    char *filePos=NULL,*stringPos=NULL,*firstChar=NULL,*stringQoutPtr=NULL,*posDistance=NULL,*typeLPos=NULL,*typeCPos=NULL;
+    char *text=(char*)malloc(sizeof(char)*300);
+    char *typeCheck=(char*)malloc(sizeof(char)*30);
+    stringPos=strstr(command," -str ");
+    if(stringPos==NULL){
+        printf("> Usage : grep [options] –str <pattern> --files [<file1> <file2> <file3> ...]\n");
+        return;
+    }
+    for(int i=0;(command+4+i)<=stringPos;i++)
+        *(typeCheck+i)=*(command+4+i);
+    typeLPos=strstr(typeCheck," -l ");
+    typeCPos=strstr(typeCheck," -c ");
+    if(typeLPos==NULL && typeCPos==NULL)
+        for(int i=0;*(typeCheck+i)!=0;i++){
+            if(*(typeCheck+i)!=' '){
+                printf("> Usage : grep [options] –str <pattern> --files [<file1> <file2> <file3> ...]\n");
+                return;
+            }
+        }
+    for(int i=0;*(stringPos+5+i)!=0;i++){
+        if(*(stringPos+5+i)!=' ' && *(stringPos+5+i)!='"'){
+            firstChar=(stringPos+5+i);
+            break;
+        }
+        if(*(stringPos+5+i)=='"'){
+            stringQoutPtr=(stringPos+5+i);
+            break;
+        }
+    }
+    if(stringQoutPtr==NULL && firstChar==NULL){
+        printf("> Usage : grep [options] –str <pattern> --files [<file1> <file2> <file3> ...]\n" );
+        return;
+    }
+    if(firstChar!=NULL)
+        for(int i=0;*(firstChar+i)!=0;i++){
+            if(*(firstChar+i)==' '){
+                posDistance=(firstChar+i);
+                break;
+            }
+            *(text+i)=*(firstChar+i);
+        }
+    if(stringQoutPtr!=NULL)
+        for(int i=0;*(stringQoutPtr+i+1)!=0;i++){
+            if(*(stringQoutPtr+i+1)=='"'){
+                posDistance=(stringQoutPtr+i+1);
+                break;
+            }
+        *(text+i)=*(stringQoutPtr+i+1);
+        }
+    if(posDistance==NULL){
+        printf("> Usage : grep [options] –str <pattern> --files [<file1> <file2> <file3> ...]\n" );
+        return;
+    }
+    filePos=strstr(posDistance," --file ");
+    if(filePos==NULL){
+        printf("> Usage : grep [options] –str <pattern> --files [<file1> <file2> <file3> ...]\n" );
+        return;
+    }
+    for(int i=0;(posDistance+i+1)<=filePos;i++)
+        if(*(posDistance+i+1)!=' '){
+            printf("> Usage : grep [options] –str <pattern> --files [<file1> <file2> <file3> ...]\n" );
+            return;
+        }
+
+    //from here
+   char *qoutPtr=NULL,*slashPtr=NULL,*Distance=NULL;
+   Distance=filePos+7;
+   int findCounter=0;
+   while(*(Distance)!=0){
+        int counter=0;
+        char *address=(char*)malloc(sizeof(char)*300);
+        for(int i=0;*(Distance+i)!=0;i++){
+            if(*(Distance+i)!=' ' && *(Distance+i)!='"' && *(Distance+i)!='/'){
+                printf("> Usage : grep [options] –str <pattern> --files [<file1> <file2> <file3> ...]\n" );
+                return;
+            }
+            if(*(Distance+i)=='"'){
+                qoutPtr=(Distance+i);
+                break;
+            }
+            if(*(Distance+i)=='/'){
+                slashPtr=(Distance+i);
+                break;
+            }
+        }
+        if(qoutPtr==NULL && slashPtr==NULL){
+            printf("> dir : /root/... or \"/root/...\"\n" );
+            return;
+        }
+        if(qoutPtr!=NULL && *(qoutPtr+1)=='/')
+            slashPtr=(qoutPtr+1);
+        else if(qoutPtr!=NULL){
+                printf("> dir : /root/... or \"/root/...\"\n" );
+                return;
+            }
+        if(qoutPtr!=NULL)
+            for(int i=0;*(slashPtr+i+1)!=0;i++){
+                if(*(slashPtr+i+1)=='"'){
+                    Distance=(slashPtr+i+2);
+                    counter=1;
+                    break;
+                }
+                *(address+i)=*(slashPtr+i+1);
+            }
+        else
+            for(int i=0;*(slashPtr+i+1)!=0;i++){
+                if(*(slashPtr+i+1)==' '){
+                    Distance=(slashPtr+i+1);
+                    counter=1;
+                    break;
+                }
+                *(address+i)=*(slashPtr+i+1);
+            }
+        if(specialCharHandeling(address)==0)
+            return;
+        else
+            for(int i=0;*(address+i)!=0;i++){
+                if(*(address+i)=='\n'){
+                    printf("> Usage : undefined character detected\n");
+                    return;
+                }
+            }
+        char *buffer=(char*)malloc(sizeof(char)*1000);
+        char* fileName=(char*)malloc(sizeof(char)*200);
+        int lastSlash=0;
+        for(int i=0;*(address+strlen(address)-1-i)!='/';i++)
+            lastSlash=strlen(address)-1-i;
+        for(int i=0;*(address+lastSlash+i)!=0;i++)
+            *(fileName+i)=*(address+lastSlash+i);
+        if(PathCheck(address,1)==0){
+            printf("Path dose not exists : %s\n",fileName);
+        }else
+        if(PathCheck(address,1)==-1){
+            printf("File dose not exists : %s \n",fileName);
+        }else
+        if(typeCPos!=NULL){
+            FILE *file;
+            file=fopen(address,"r");
+            while(fgets(buffer,512,file)!=NULL){
+                if(strstr(buffer,text)!=NULL){
+                    findCounter++;
+                    free(buffer);
+                }
+                buffer=(char*)malloc(sizeof(char)*1000);
+            }
+            fclose(file);
+        }else
+        if(typeLPos!=0){
+            FILE *file;
+            file=fopen(address,"r");
+            fread(buffer,1000,1,file);
+            if(strstr(buffer,text)!=NULL)
+                printf("%s\n",fileName);
+            fclose(file);
+        }else{
+            FILE *file;
+            file=fopen(address,"r");
+            while(fgets(buffer,512,file)!=NULL){
+                if(strstr(buffer,text)!=NULL){
+                    buffer[strcspn(buffer, "\n")] = 0;
+                    printf("%s : %s\n",fileName,buffer);
+                    free(buffer);
+                }
+                buffer=(char*)malloc(sizeof(char)*1000);
+            }
+            fclose(file);
+        }
+        free(address);
+        free(buffer);
+        free(fileName);
+        slashPtr=NULL;
+        qoutPtr=NULL;
+        if(counter!=1)
+            break;
+    }
+    if(typeCPos!=NULL)
+        printf("Output number : %d\n",findCounter);
 }
 void auto_indent(char *command){
     char *slashPtr,*qoutPtr=NULL;
@@ -1331,7 +1667,7 @@ void auto_indent(char *command){
             }
         }
     //check for correct path and file
-    if(PathCheck(address)==0)
+    if(PathCheck(address,0)==0)
         return;
     beforChanges(address);
     //make file
@@ -1602,9 +1938,9 @@ void compare(char *command){
                 return;
             }
     //check for address existence
-   if(PathCheck(address1)==0)
+   if(PathCheck(address1,0)==0)
         return;
-    if(PathCheck(address2)==0)
+    if(PathCheck(address2,0)==0)
         return;
    //open files
     FILE *file1,*file2;
@@ -1727,7 +2063,11 @@ void treeCommandReader(char* command){
     free(depthString);
 }
 void commandDetector(char *command){
-    if(!strcmp(command,"end")){
+     if(!strcmp(command,"end")){
+        if(access(".system",X_OK)!=0){
+            mkdir(".system",0777);
+         }
+         system("rm -r .system");
          printf("> Exiting  Programm ...\n\n");
          exit(0);
          return;
@@ -1762,6 +2102,10 @@ void commandDetector(char *command){
     }
     if(strstr(command,"find ")==command || !strcmp(command,"find")){
          find(command);
+         return;
+    }
+    if(strstr(command,"grep ")==command || !strcmp(command,"grep")){
+         grep(command);
          return;
     }
     if(strstr(command,"undo ")==command || !strcmp(command,"undo")){
