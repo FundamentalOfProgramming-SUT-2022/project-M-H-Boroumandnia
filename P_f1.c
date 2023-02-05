@@ -4,6 +4,7 @@
 #include<sys/stat.h>
 #include <unistd.h>
 #include<dirent.h>
+int removelast=0;
 void rootFolder(){
     mkdir("root",0777);
     FILE *file;
@@ -119,7 +120,7 @@ int specialCharHandeling(char *string){
             i=0;
         }
         //check for \n
-        if(*(string+i)=='\\' && (*(string+i+1)=='n')){
+        if(*(string+i)=='\\' && (*(string+i+1)=='n') && (*(string+i-1)!='\\')){
             *(string+i)='\n';
             for(int j=i+1;*(string+j)!=0;j++){
                 *(string+j)=*(string+j+1);
@@ -143,6 +144,15 @@ int specialCharHandeling(char *string){
             i=0;
         }
     }
+    /*for(int i=0;*(string+i+1)!=0;i++){
+        if(*(string+i)=='\\' && *(string+i+1)=='\\' && *(string+i+2)=='n'){
+            *(string+i)='\\';
+            for(int j=i+1;*(string+j)!=0;j++){
+                *(string+j)=*(string+j+1);
+            }
+            i=0;
+        }
+    }*/
     return 1;
 }
 void createfile(char *command){
@@ -1035,6 +1045,7 @@ void removestr_copy_cut(char *command,int n){
     free(newBuffer);
 }
 int wildCard(char *buffer,char *search){
+    removelast=0;
     int check=1,counter=0,counterP=0,counterPO=0,start=0;
     for(int i=0;;i++){
         if(*(search+i)==0){
@@ -1091,6 +1102,7 @@ int wildCard(char *buffer,char *search){
         }
         counter++; 
     }
+    removelast=counter;
     if(check==1)
         return start;
     else
@@ -1136,7 +1148,7 @@ void find(char *command){
     if(stringQoutPtr!=NULL)
         for(int i=0;*(stringQoutPtr+i+1)!=0;i++){
             if(*(stringQoutPtr+i+1)=='"'){
-                posDistance=(stringQoutPtr+i+1);
+                posDistance=(stringQoutPtr+i+2);
                 break;
             }
         *(text+i)=*(stringQoutPtr+i+1);
@@ -1426,6 +1438,260 @@ void undo(char *command){
     free(newbuffer);
     free(newAddress);
     free(address);
+}
+void replace(char *command){
+    char *filePos=NULL,*stringPos=NULL,*stringPos2=NULL,*firstChar=NULL,*stringQoutPtr=NULL,*posDistance=NULL;
+    char *firstChar2=NULL,*stringQoutPtr2=NULL,*posDistance2=NULL;
+    int typePos=0;
+    char *text=(char*)malloc(sizeof(char)*300);
+    char *text2=(char*)malloc(sizeof(char)*300);
+    char *address=(char*)malloc(sizeof(char)*300);
+    stringPos=strstr(command," -str1 ");
+    if(stringPos==NULL){
+        printf("> Usage : replace –str1 <str> –str2 <str> –file <file name> [-at <num> | -all]\n" );
+        return;
+    }
+    for(int i=0;(command+7+i)<=stringPos;i++)
+        if(*(command+7+i)!=' '){
+            printf("> Usage : replace –str1 <str> –str2 <str> –file <file name> [-at <num> | -all]\n" );
+            return;
+        }
+    for(int i=0;*(stringPos+6+i)!=0;i++){
+        if(*(stringPos+6+i)!=' ' && *(stringPos+6+i)!='"'){
+            firstChar=(stringPos+6+i);
+            break;
+        }
+        if(*(stringPos+6+i)=='"'){
+            stringQoutPtr=(stringPos+6+i);
+            break;
+        }
+    }
+    if(stringQoutPtr==NULL && firstChar==NULL){
+        printf("> Usage : replace –str1 <str> –str2 <str> –file <file name> [-at <num> | -all]\n" );
+        return;
+    }
+    if(firstChar!=NULL)
+        for(int i=0;*(firstChar+i)!=0;i++){
+            if(*(firstChar+i)==' '){
+                posDistance=(firstChar+i);
+                break;
+            }
+            *(text+i)=*(firstChar+i);
+        }
+    if(stringQoutPtr!=NULL)
+        for(int i=0;*(stringQoutPtr+i+1)!=0;i++){
+            if(*(stringQoutPtr+i+1)=='"'){
+                posDistance=(stringQoutPtr+i+2);
+                break;
+            }
+        *(text+i)=*(stringQoutPtr+i+1);
+        }
+    if(posDistance==NULL){
+        printf("> replace –str1 <str> –str2 <str> –file <file name> [-at <num> | -all]\n" );
+        return;
+    }
+    stringPos2=strstr(posDistance," -str2 ");
+    for(int i=0;(posDistance+i)<=stringPos2;i++)
+        if(*(posDistance+i)!=' '){
+            printf("> Usage : replace –str1 <str> –str2 <str> –file <file name> [-at <num> | -all]\n" );
+            return;
+        }
+    for(int i=0;*(stringPos2+6+i)!=0;i++){
+        if(*(stringPos2+6+i)!=' ' && *(stringPos2+6+i)!='"'){
+            firstChar2=(stringPos2+6+i);
+            break;
+        }
+        if(*(stringPos2+6+i)=='"'){
+            stringQoutPtr2=(stringPos2+6+i);
+            break;
+        }
+    }
+    if(stringQoutPtr2==NULL && firstChar2==NULL){
+        printf("> Usage : replace –str1 <str> –str2 <str> –file <file name> [-at <num> | -all]\n" );
+        return;
+    }
+    if(firstChar2!=NULL)
+        for(int i=0;*(firstChar2+i)!=0;i++){
+            if(*(firstChar2+i)==' '){
+                posDistance2=(firstChar2+i);
+                break;
+            }
+            *(text2+i)=*(firstChar2+i);
+        }
+    if(stringQoutPtr2!=NULL)
+        for(int i=0;*(stringQoutPtr2+i+1)!=0;i++){
+            if(*(stringQoutPtr2+i+1)=='"'){
+                posDistance2=(stringQoutPtr2+i+1);
+                break;
+            }
+        *(text2+i)=*(stringQoutPtr2+i+1);
+        }
+    if(posDistance2==NULL){
+        printf("> Usage : replace –str1 <str> –str2 <str> –file <file name> [-at <num> | -all]\n" );
+        return;
+    }
+    filePos=strstr(posDistance2," --file ");
+    if(filePos==NULL){
+        printf("> Usage : replace –str1 <str> –str2 <str> –file <file name> [-at <num> | -all]\n" );
+        return;
+    }
+    for(int i=0;(posDistance2+i+1)<=filePos;i++)
+        if(*(posDistance2+i+1)!=' '){
+            printf("> Usage : replace –str1 <str> –str2 <str> –file <file name> [-at <num> | -all]\n" );
+            return;
+        }
+    char *qoutPtr=NULL,*slashPtr=NULL,*typeDistance=NULL;
+    for(int i=0;*(filePos+5+i)!=0;i++){
+        if(*(filePos+7+i)!=' ' && *(filePos+7+i)!='"' && *(filePos+7+i)!='/'){
+            printf("> Usage : replace –str1 <str> –str2 <str> –file <file name> [-at <num> | -all]\n" );
+            return;
+        }
+        if(*(filePos+7+i)=='"'){
+            qoutPtr=(filePos+7+i);
+            break;
+        }
+        if(*(filePos+7+i)=='/'){
+            slashPtr=(filePos+7+i);
+            break;
+        }
+    }
+    if(qoutPtr==NULL && slashPtr==NULL){
+        printf("> dir : /root/... or \"/root/...\"\n" );
+        return;
+    }
+    if(qoutPtr!=NULL && *(qoutPtr+1)=='/')
+        slashPtr=(qoutPtr+1);
+    else if(qoutPtr!=NULL){
+            printf("> dir : /root/... or \"/root/...\"\n" );
+            return;
+        }
+    if(qoutPtr!=NULL)
+        for(int i=0;*(slashPtr+i+1)!=0;i++){
+            if(*(slashPtr+i+1)=='"'){
+                typeDistance=(slashPtr+i+1);
+                break;
+            }
+            *(address+i)=*(slashPtr+i+1);
+        }
+    else
+        for(int i=0;*(slashPtr+i+1)!=0;i++){
+            if(*(slashPtr+i+1)==' '){
+                typeDistance=(slashPtr+i+1);
+                break;
+            }
+        *(address+i)=*(slashPtr+i+1);
+        }
+    if(qoutPtr!=NULL && typeDistance==NULL){
+        printf("> dir : /root/... or \"/root/...\"\n" );
+        return;
+    }
+    if(specialCharHandeling(address)==0)
+        return;
+    else
+        for(int i=0;*(address+i)!=0;i++){
+            if(*(address+i)=='\n'){
+                printf("> Usage : undefined character detected\n");
+                return;
+            }
+        }
+    FILE *file;
+    char *buffer=(char *)malloc(sizeof(char)*1000);
+    char *newBuffer=(char *)malloc(sizeof(char)*1000);
+    char *newBufferADD=(char *)malloc(sizeof(char)*1000);
+    char *number=(char *)malloc(sizeof(char)*1000);
+    char *atPos=NULL,*allPos=NULL,*bufferAlter=NULL;
+    int tonum=0;
+    file=fopen(address,"r");
+    fread(buffer,1000,1,file);
+    if(qoutPtr!=NULL && (*(typeDistance)==0))
+        typePos=1;
+    if(qoutPtr==NULL && typeDistance==NULL)
+        typePos=1;
+    if(typeDistance!=NULL && *(typeDistance)!=0){
+        atPos=strstr(typeDistance," -at");
+        allPos=strstr(typeDistance," -all");
+    }
+    if(atPos!=NULL && allPos!=NULL){
+        printf("> Usage : opetions can not be excuted\n");
+        return;
+    }
+    if(typePos==1){
+        int counter=0;
+        for(int i=0;*(buffer+i)!=0;i++){
+            if(i<wildCard(buffer,text)){
+                *(newBuffer+counter)=*(buffer+i);
+                counter++;
+            }
+            if(i>=removelast){
+                *(newBuffer+counter)=*(buffer+i);
+                counter++;
+            }
+        }
+        counter=0;
+        for(int i=0;*(newBuffer+i)!=0;i++){
+            if(i<wildCard(buffer,text)){
+                *(newBufferADD+counter)=*(newBuffer+i);
+                counter++;
+            }
+            if(i==wildCard(buffer,text)){
+                for(int j=0;*(text2+j)!=0;j++){
+                    *(newBufferADD+counter)=*(text2+j);
+                    counter++;
+                }
+            }
+            if(i>=wildCard(buffer,text)){
+                *(newBufferADD+counter)=*(newBuffer+i);
+                counter++;
+            }
+        }
+        file=fopen(address,"w");
+        fputs(newBufferADD,file);
+        fclose(file);
+    }
+    if(atPos!=NULL){
+        for(int i=0;*(atPos+5+i)!=0;i++){
+            if(*(atPos+5+i)==' ')
+                break;
+            *(number+i)=*(atPos+5+i);
+        }
+        long int poS=0;
+        tonum=atoi(number);
+        bufferAlter=buffer;
+        int coma=0;
+        while(1){
+            if(wildCard(bufferAlter,text)==-1)
+                break;
+            poS=wildCard(bufferAlter,text);
+            coma++;
+            if(coma==tonum)
+                break;
+            bufferAlter=bufferAlter+wildCard(bufferAlter,text)+1;
+        }
+        if(coma<tonum)
+            printf("-1\n");
+        else{
+            int counter=0;
+            for(int i=0;*(buffer+i)!=0;i++){
+                if(i<poS){
+                    *(newBuffer+counter)=*(buffer+i);
+                    counter++;
+                }
+                if(i==poS){
+                    for(int j=0;*(text2+j)!=0;j++){
+                        *(newBuffer+counter)=*(text2+j);
+                        counter++;
+                    }
+                }
+                if(i>=removelast){
+                    *(newBuffer+counter)=*(buffer+i);
+                    counter++;
+                }
+            }   
+            file=fopen(address,"w");
+            fputs(newBuffer,file);
+            fclose(file);
+        }
+    }
 }
 void grep(char *command){
     char *filePos=NULL,*stringPos=NULL,*firstChar=NULL,*stringQoutPtr=NULL,*posDistance=NULL,*typeLPos=NULL,*typeCPos=NULL;
@@ -2102,6 +2368,10 @@ void commandDetector(char *command){
     }
     if(strstr(command,"find ")==command || !strcmp(command,"find")){
          find(command);
+         return;
+    }
+    if(strstr(command,"replace ")==command || !strcmp(command,"replace")){
+         replace(command);
          return;
     }
     if(strstr(command,"grep ")==command || !strcmp(command,"grep")){
